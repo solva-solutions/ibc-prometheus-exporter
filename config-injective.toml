@@ -44,7 +44,7 @@ state_scan_timeout = 600
 # Counterparty-side metrics use the matching neutron/osmosis channels below.
 # Neutron counterparty channels: 829→215, 4482→288, 4498→304, 4616→315, 5387→352,
 # 5550→372, 5906→390, 6221→392. Osmosis counterparty: 77133→301.
-channel-8 = ["633996-633997"]
+channel-8 = ["633997", "634996"]
 channel-215 = ["22-46"]
 channel-288 = ["1-3"]
 channel-301 = ["18"]

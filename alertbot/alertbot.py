@@ -349,7 +349,6 @@ def _client_expiry_blocks(
                 {"type": "mrkdwn", "text": f"*Chain:*\n`{client.chain_id}`"},
                 {"type": "mrkdwn", "text": f"*Counterparty:*\n`{client.counterparty_chain_id}`"},
                 {"type": "mrkdwn", "text": f"*Client ID:*\n`{client.client_id}`"},
-                {"type": "mrkdwn", "text": f"*CP Client:*\n`{client.counterparty_client_id}`"},
                 {"type": "mrkdwn", "text": f"*Elapsed:*\n`{pct_elapsed:.1f}%`"},
                 {
                     "type": "mrkdwn",
@@ -374,7 +373,6 @@ def _client_expired_blocks(client: ClientState) -> Tuple[List[Dict], str]:
                 {"type": "mrkdwn", "text": f"*Chain:*\n`{client.chain_id}`"},
                 {"type": "mrkdwn", "text": f"*Counterparty:*\n`{client.counterparty_chain_id}`"},
                 {"type": "mrkdwn", "text": f"*Client ID:*\n`{client.client_id}`"},
-                {"type": "mrkdwn", "text": f"*CP Client:*\n`{client.counterparty_client_id}`"},
             ],
         },
         {"type": "divider"},
@@ -488,10 +486,22 @@ def send_preview(config: Config, dry_run: bool = False) -> None:
     """Send one example of every alert type so the message format can be verified."""
     now = time.time()
 
-    # Derive a representative chain name from the metrics URL host (best-effort)
-    import urllib.parse
-    host = urllib.parse.urlparse(config.metrics_url).hostname or "home-chain"
-    chain = host.split(".")[0]
+    # Use the real home chain ID from live metrics; fall back to a placeholder
+    metrics = fetch_metrics(config.metrics_url)
+    chain = "home-chain"
+    cp_chain = "osmosis-1"
+    if metrics:
+        # ibc_backlog_last_update_time_seconds has only chain_id — reliable home chain source
+        for lbl, _ in metrics.get("ibc_backlog_last_update_time_seconds", []):
+            if lbl.get("chain_id"):
+                chain = lbl["chain_id"]
+                break
+        # Pick a counterparty that actually appears in the metrics
+        for lbl, _ in metrics.get("ibc_client_trusting_period_seconds", []):
+            cp = lbl.get("counterparty_chain_id", "")
+            if cp and cp != chain:
+                cp_chain = cp
+                break
 
     _send_blocks(
         config.webhook_url,
@@ -502,7 +512,7 @@ def send_preview(config: Config, dry_run: bool = False) -> None:
 
     # Send packet — single
     entry_single = PacketAlert(
-        chain_id=chain, counterparty_chain_id="osmosis-1",
+        chain_id=chain, counterparty_chain_id=cp_chain,
         connection_id="connection-8", port_id="transfer",
         channel_id="channel-8", counterparty_port_id="transfer",
         counterparty_channel_id="channel-122",
@@ -514,7 +524,7 @@ def send_preview(config: Config, dry_run: bool = False) -> None:
 
     # Ack packet — multiple
     entry_multi = PacketAlert(
-        chain_id=chain, counterparty_chain_id="cosmoshub-4",
+        chain_id=chain, counterparty_chain_id=cp_chain,
         connection_id="connection-4", port_id="transfer",
         channel_id="channel-4", counterparty_port_id="transfer",
         counterparty_channel_id="channel-220",
@@ -528,7 +538,7 @@ def send_preview(config: Config, dry_run: bool = False) -> None:
     trusting = 86_400 * 14  # 14 days
     client = ClientState(
         client_id="07-tendermint-42", chain_id=chain,
-        counterparty_chain_id="osmosis-1", counterparty_client_id="07-tendermint-7",
+        counterparty_chain_id=cp_chain, counterparty_client_id="07-tendermint-7",
         trusting_period=trusting, last_update=0.0, status="active",
     )
     for pct_target in [55.0, 80.0, 93.0]:

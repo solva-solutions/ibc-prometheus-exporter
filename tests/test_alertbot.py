@@ -453,8 +453,12 @@ class TestStartup:
         assert "2" in body
         assert "8" in body
         assert "4" in body
-        assert "10" in body   # packet threshold
-        assert "60" in body   # repeat interval
+        assert "10" in body        # packet threshold
+        assert "60" in body        # repeat interval
+        assert "50%" in body       # expiry thresholds formatted without Python list syntax
+        assert "75%" in body
+        assert "90%" in body
+        assert "[50" not in body   # no raw Python list notation
 
     def test_run_startup_sends_status_and_active_alerts(self, capsys):
         metrics = self._make_full_metrics()
@@ -658,5 +662,8 @@ class TestMessageRendering:
         _pp(blocks, fallback)
 
         assert "started" in fallback.lower()
-        assert "2" in json.dumps(blocks)
-        assert "8" in json.dumps(blocks)
+        body = json.dumps(blocks)
+        assert "50%" in body
+        assert "75%" in body
+        assert "90%" in body
+        assert "[50" not in body

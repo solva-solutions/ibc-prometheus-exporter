@@ -79,7 +79,17 @@ Useful flags:
 |---|---|
 | `--once` | Run a single check and exit (useful for testing) |
 | `--dry-run` | Evaluate alerts but do not send any Slack messages |
+| `--preview` | Send one example of every alert type to verify formatting, then exit |
 | `--log-level DEBUG` | Verbose output including every poll cycle |
+
+### Verify alert formatting
+
+Send one example of each alert type to your Slack channel without needing live
+alert conditions:
+
+```bash
+python3 alertbot/alertbot.py --config alertbot/config.toml --preview
+```
 
 ### Test your setup without sending messages
 

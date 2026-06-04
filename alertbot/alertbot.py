@@ -415,9 +415,7 @@ def _startup_blocks(config: Config, counts: Dict[str, int]) -> Tuple[List[Dict],
     """Build a Slack message announcing that the bot has started."""
     fallback = "IBC Alert Bot started"
 
-    chain_str = f"`{counts['chains']}` chain{'s' if counts['chains'] != 1 else ''}"
-    ch_str = f"`{counts['channels']}` channel{'s' if counts['channels'] != 1 else ''}"
-    cl_str = f"`{counts['clients']}` client{'s' if counts['clients'] != 1 else ''}"
+    expiry_pct = "  /  ".join(f"{p}%" for p in sorted(config.client_expiry_warn_pct))
 
     blocks: List[Dict] = [
         {
@@ -427,18 +425,26 @@ def _startup_blocks(config: Config, counts: Dict[str, int]) -> Tuple[List[Dict],
         {
             "type": "section",
             "fields": [
-                {"type": "mrkdwn", "text": f"*Monitoring:*\n{chain_str}, {ch_str}, {cl_str}"},
                 {
                     "type": "mrkdwn",
                     "text": (
-                        f"*Thresholds:*\n"
-                        f"packets >{config.pending_packet_age_minutes}m  •  "
-                        f"client expiry {config.client_expiry_warn_pct}%"
+                        f"*Monitoring:*\n"
+                        f"`{counts['chains']}` chain{'s' if counts['chains'] != 1 else ''}  •  "
+                        f"`{counts['channels']}` channel{'s' if counts['channels'] != 1 else ''}  •  "
+                        f"`{counts['clients']}` client{'s' if counts['clients'] != 1 else ''}"
                     ),
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"*Repeat interval:*\n`{config.repeat_interval_minutes}m`",
+                    "text": (
+                        f"*Packet threshold:*\n"
+                        f"`>{config.pending_packet_age_minutes}m`  •  "
+                        f"repeat every `{config.repeat_interval_minutes}m`"
+                    ),
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Client expiry alerts:*\n`{expiry_pct}`",
                 },
                 {
                     "type": "mrkdwn",
@@ -473,6 +479,71 @@ def run_startup(
     # Force-send all currently active alerts regardless of prior notification state
     _check_packets(config, state, metrics, now, dry_run, force=True)
     _check_clients(config, state, metrics, now, dry_run, force=True)
+
+
+# ── Format preview ───────────────────────────────────────────────────────────
+
+
+def send_preview(config: Config, dry_run: bool = False) -> None:
+    """Send one example of every alert type so the message format can be verified."""
+    now = time.time()
+
+    # Derive a representative chain name from the metrics URL host (best-effort)
+    import urllib.parse
+    host = urllib.parse.urlparse(config.metrics_url).hostname or "home-chain"
+    chain = host.split(".")[0]
+
+    _send_blocks(
+        config.webhook_url,
+        [{"type": "section", "text": {"type": "mrkdwn", "text": ":eyes: *Alert format preview* — one example of each alert type"}}],
+        "Alert format preview",
+        dry_run,
+    )
+
+    # Send packet — single
+    entry_single = PacketAlert(
+        chain_id=chain, counterparty_chain_id="osmosis-1",
+        connection_id="connection-8", port_id="transfer",
+        channel_id="channel-8", counterparty_port_id="transfer",
+        counterparty_channel_id="channel-122",
+        size=1, oldest_sequence=634998,
+        oldest_timestamp=now - 18 * 60, kind="send",
+    )
+    blocks, fb = _packet_blocks(entry_single, 18 * 60)
+    _send_blocks(config.webhook_url, blocks, fb, dry_run)
+
+    # Ack packet — multiple
+    entry_multi = PacketAlert(
+        chain_id=chain, counterparty_chain_id="cosmoshub-4",
+        connection_id="connection-4", port_id="transfer",
+        channel_id="channel-4", counterparty_port_id="transfer",
+        counterparty_channel_id="channel-220",
+        size=5, oldest_sequence=200,
+        oldest_timestamp=now - 130 * 60, kind="ack",
+    )
+    blocks, fb = _packet_blocks(entry_multi, 130 * 60)
+    _send_blocks(config.webhook_url, blocks, fb, dry_run)
+
+    # Client expiry — one message per threshold level
+    trusting = 86_400 * 14  # 14 days
+    client = ClientState(
+        client_id="07-tendermint-42", chain_id=chain,
+        counterparty_chain_id="osmosis-1", counterparty_client_id="07-tendermint-7",
+        trusting_period=trusting, last_update=0.0, status="active",
+    )
+    for pct_target in [55.0, 80.0, 93.0]:
+        client.last_update = now - trusting * (pct_target / 100)
+        pct = client.pct_elapsed(now)
+        blocks, fb = _client_expiry_blocks(client, pct, client.time_until_expiry(now))
+        _send_blocks(config.webhook_url, blocks, fb, dry_run)
+
+    # Expired client
+    client.last_update = now - trusting * 1.1
+    client.status = "expired"
+    blocks, fb = _client_expired_blocks(client)
+    _send_blocks(config.webhook_url, blocks, fb, dry_run)
+
+    logger.info("Preview: sent 7 example messages")
 
 
 # ── Alert evaluation ──────────────────────────────────────────────────────────
@@ -608,6 +679,11 @@ def main() -> None:
         help="Evaluate alerts but do not send Slack messages",
     )
     parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Send one example of every alert type to verify formatting, then exit",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -631,6 +707,13 @@ def main() -> None:
         config.poll_interval_seconds,
         args.dry_run,
     )
+
+    if args.preview:
+        try:
+            send_preview(config, dry_run=args.dry_run)
+        except Exception:
+            logger.exception("Unexpected error during preview")
+        return
 
     state = load_state(config.state_file)
     try:

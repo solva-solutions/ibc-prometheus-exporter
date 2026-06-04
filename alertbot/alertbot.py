@@ -291,8 +291,8 @@ def _send_blocks(webhook_url: str, blocks: List[Dict], fallback: str, dry_run: b
 
 def _packet_blocks(entry: PacketAlert, age_seconds: float) -> Tuple[List[Dict], str]:
     if entry.kind == "send":
-        title = f":warning: Uncommitted packets from *{entry.chain_id}* to *{entry.counterparty_chain_id}*"
-        fallback = f"Uncommitted packets from {entry.chain_id} to {entry.counterparty_chain_id}"
+        title = f":warning: Unreceived packets from *{entry.chain_id}* to *{entry.counterparty_chain_id}*"
+        fallback = f"Unreceived packets from {entry.chain_id} to {entry.counterparty_chain_id}"
     else:
         title = f":warning: Unacknowledged packets from *{entry.chain_id}* to *{entry.counterparty_chain_id}*"
         fallback = f"Unacknowledged packets from {entry.chain_id} to {entry.counterparty_chain_id}"
@@ -382,6 +382,99 @@ def _client_expired_blocks(client: ClientState) -> Tuple[List[Dict], str]:
     return blocks, fallback
 
 
+# ── Startup status ────────────────────────────────────────────────────────────
+
+
+def _count_monitored(metrics: MetricSamples) -> Dict[str, int]:
+    """Return counts of chains, open channels, and clients visible in metrics."""
+    chains = {lbl.get("chain_id") for lbl, _ in metrics.get("ibc_rest_health", [])}
+    chains.discard(None)
+
+    # Count unique (chain_id, channel_id) pairs present in channel-state metrics
+    channels: set = set()
+    for lbl, _ in metrics.get("ibc_channel_state", []):
+        cid = lbl.get("chain_id")
+        ch = lbl.get("channel_id")
+        if cid and ch:
+            channels.add((cid, ch))
+    # Fall back to backlog metrics when channel_state is absent
+    if not channels:
+        for metric in ("ibc_send_packet_backlog_size", "ibc_ack_packet_backlog_size"):
+            for lbl, _ in metrics.get(metric, []):
+                cid = lbl.get("chain_id")
+                ch = lbl.get("channel_id")
+                if cid and ch:
+                    channels.add((cid, ch))
+
+    clients = len(metrics.get("ibc_client_trusting_period_seconds", []))
+
+    return {"chains": len(chains), "channels": len(channels), "clients": clients}
+
+
+def _startup_blocks(config: Config, counts: Dict[str, int]) -> Tuple[List[Dict], str]:
+    """Build a Slack message announcing that the bot has started."""
+    fallback = "IBC Alert Bot started"
+
+    chain_str = f"`{counts['chains']}` chain{'s' if counts['chains'] != 1 else ''}"
+    ch_str = f"`{counts['channels']}` channel{'s' if counts['channels'] != 1 else ''}"
+    cl_str = f"`{counts['clients']}` client{'s' if counts['clients'] != 1 else ''}"
+
+    blocks: List[Dict] = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": ":white_check_mark: *IBC Alert Bot started*"},
+        },
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Monitoring:*\n{chain_str}, {ch_str}, {cl_str}"},
+                {
+                    "type": "mrkdwn",
+                    "text": (
+                        f"*Thresholds:*\n"
+                        f"packets >{config.pending_packet_age_minutes}m  •  "
+                        f"client expiry {config.client_expiry_warn_pct}%"
+                    ),
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Repeat interval:*\n`{config.repeat_interval_minutes}m`",
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Poll interval:*\n`{config.poll_interval_seconds}s`",
+                },
+            ],
+        },
+        {"type": "divider"},
+    ]
+    return blocks, fallback
+
+
+def run_startup(
+    config: Config, state: Dict[str, Any], now: float, dry_run: bool = False
+) -> None:
+    """Send the startup status message followed by any currently active alerts."""
+    metrics = fetch_metrics(config.metrics_url)
+    if not metrics:
+        logger.warning("Could not fetch metrics at startup — skipping startup message")
+        return
+
+    counts = _count_monitored(metrics)
+    blocks, fallback = _startup_blocks(config, counts)
+    _send_blocks(config.webhook_url, blocks, fallback, dry_run)
+    logger.info(
+        "Startup: monitoring %d chains, %d channels, %d clients",
+        counts["chains"],
+        counts["channels"],
+        counts["clients"],
+    )
+
+    # Force-send all currently active alerts regardless of prior notification state
+    _check_packets(config, state, metrics, now, dry_run, force=True)
+    _check_clients(config, state, metrics, now, dry_run, force=True)
+
+
 # ── Alert evaluation ──────────────────────────────────────────────────────────
 
 
@@ -400,6 +493,7 @@ def _check_packets(
     metrics: MetricSamples,
     now: float,
     dry_run: bool,
+    force: bool = False,
 ) -> None:
     send_entries, ack_entries = extract_packet_alerts(metrics)
     repeat_sec = config.repeat_interval_minutes * 60
@@ -422,7 +516,7 @@ def _check_packets(
             pstate = state["packets"].setdefault(key, {})
             last_notified = pstate.get("last_notified", 0)
 
-            if now - last_notified >= repeat_sec:
+            if force or now - last_notified >= repeat_sec:
                 blocks, fallback = _packet_blocks(entry, age_sec)
                 if _send_blocks(config.webhook_url, blocks, fallback, dry_run):
                     pstate["last_notified"] = now
@@ -442,6 +536,7 @@ def _check_clients(
     metrics: MetricSamples,
     now: float,
     dry_run: bool,
+    force: bool = False,
 ) -> None:
     clients = extract_client_states(metrics)
 
@@ -452,7 +547,7 @@ def _check_clients(
         )
 
         if client.status == "expired":
-            if not cstate.get("expired_notified"):
+            if force or not cstate.get("expired_notified"):
                 blocks, fallback = _client_expired_blocks(client)
                 if _send_blocks(config.webhook_url, blocks, fallback, dry_run):
                     cstate["expired_notified"] = True
@@ -472,13 +567,13 @@ def _check_clients(
         # Trim thresholds that are no longer exceeded (client was updated)
         cstate["thresholds_fired"] = [t for t in cstate["thresholds_fired"] if t <= pct]
 
-        # Fire the highest un-fired threshold that has been crossed
+        # Fire the highest threshold that has been crossed (force bypasses already-fired check)
         thresholds = sorted(config.client_expiry_warn_pct, reverse=True)
         for threshold in thresholds:
-            if pct >= threshold and threshold not in cstate["thresholds_fired"]:
+            already_fired = threshold in cstate["thresholds_fired"]
+            if pct >= threshold and (force or not already_fired):
                 blocks, fallback = _client_expiry_blocks(client, pct, time_left)
                 if _send_blocks(config.webhook_url, blocks, fallback, dry_run):
-                    # Mark this and all lower thresholds as fired to avoid re-firing them
                     for t in config.client_expiry_warn_pct:
                         if t <= threshold and t not in cstate["thresholds_fired"]:
                             cstate["thresholds_fired"].append(t)
@@ -537,6 +632,16 @@ def main() -> None:
         args.dry_run,
     )
 
+    state = load_state(config.state_file)
+    try:
+        run_startup(config, state, time.time(), dry_run=args.dry_run)
+    except Exception:
+        logger.exception("Unexpected error during startup")
+    save_state(state, config.state_file)
+
+    if args.once:
+        return
+
     while True:
         state = load_state(config.state_file)
         try:
@@ -544,9 +649,6 @@ def main() -> None:
         except Exception:
             logger.exception("Unexpected error during check")
         save_state(state, config.state_file)
-
-        if args.once:
-            break
 
         logger.debug("Next check in %ds", config.poll_interval_seconds)
         time.sleep(config.poll_interval_seconds)

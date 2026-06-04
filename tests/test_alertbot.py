@@ -24,10 +24,13 @@ from alertbot.alertbot import (
     _check_packets,
     _client_expired_blocks,
     _client_expiry_blocks,
+    _count_monitored,
     _fmt_duration,
     _packet_blocks,
+    _startup_blocks,
     extract_client_states,
     extract_packet_alerts,
+    run_startup,
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -378,6 +381,118 @@ class TestCheckClients:
         assert state["clients"][key]["expired_notified"] is False
 
 
+# ── Startup ───────────────────────────────────────────────────────────────────
+
+
+class TestStartup:
+    def _make_full_metrics(self) -> MetricSamples:
+        """Metrics with 2 chains, 2 channels, 2 clients — one alerting path and one expiring client."""
+        lbl2 = {**_CHANNEL_LABELS, "chain_id": "cosmoshub-4", "counterparty_chain_id": "injective-1",
+                "channel_id": "channel-220", "counterparty_channel_id": "channel-4"}
+        client2_labels = {**_CLIENT_LABELS, "client_id": "07-tendermint-99",
+                         "chain_id": "cosmoshub-4", "counterparty_chain_id": "injective-1",
+                         "counterparty_client_id": "07-tendermint-42"}
+        m: MetricSamples = {}
+        # REST health for 2 chains
+        m["ibc_rest_health"] = [
+            ({"chain_id": "injective-1", "endpoint": "http://inj"}, 1.0),
+            ({"chain_id": "cosmoshub-4", "endpoint": "http://cosmos"}, 1.0),
+        ]
+        # Channel state for 2 channels
+        m["ibc_channel_state"] = [
+            ({**_CHANNEL_LABELS, "state": "open"}, 1.0),
+            ({**lbl2, "state": "open"}, 1.0),
+        ]
+        # One stuck send packet on injective path
+        m.update(_channel_metrics("send", size=2, oldest_seq=50, oldest_ts=NOW - 900))
+        # Two clients
+        client1 = _client_metrics(TRUSTING_PERIOD, NOW - TRUSTING_PERIOD * 0.80, "active")
+        client2_lbl = dict(_CLIENT_LABELS)
+        client2_lbl.update(client2_labels)
+        client2 = {
+            "ibc_client_trusting_period_seconds": [(client2_labels, TRUSTING_PERIOD)],
+            "ibc_client_last_update_timestamp_seconds": [(client2_labels, NOW - TRUSTING_PERIOD * 0.3)],
+            "ibc_client_status": [({**client2_labels, "status": "active"}, 1.0)],
+        }
+        for k, v in client1.items():
+            m.setdefault(k, []).extend(v)
+        for k, v in client2.items():
+            m.setdefault(k, []).extend(v)
+        return m
+
+    def test_count_monitored(self):
+        metrics = self._make_full_metrics()
+        counts = _count_monitored(metrics)
+        assert counts["chains"] == 2
+        assert counts["channels"] == 2
+        assert counts["clients"] == 2
+
+    def test_count_monitored_fallback_to_backlog(self):
+        """When ibc_channel_state is absent, falls back to backlog metrics."""
+        metrics = _channel_metrics("send", size=1, oldest_seq=1, oldest_ts=NOW - 600)
+        # Add REST health
+        metrics["ibc_rest_health"] = [
+            ({"chain_id": "injective-1", "endpoint": "http://inj"}, 1.0),
+        ]
+        counts = _count_monitored(metrics)
+        assert counts["chains"] == 1
+        assert counts["channels"] == 1
+
+    def test_startup_blocks_content(self):
+        config = _default_config(
+            pending_packet_age_minutes=10,
+            client_expiry_warn_pct=[50, 75, 90],
+            repeat_interval_minutes=60,
+            poll_interval_seconds=60,
+        )
+        counts = {"chains": 2, "channels": 8, "clients": 4}
+        blocks, fallback = _startup_blocks(config, counts)
+
+        assert "started" in fallback.lower()
+        body = json.dumps(blocks)
+        assert "2" in body
+        assert "8" in body
+        assert "4" in body
+        assert "10" in body   # packet threshold
+        assert "60" in body   # repeat interval
+
+    def test_run_startup_sends_status_and_active_alerts(self, capsys):
+        metrics = self._make_full_metrics()
+        state = _fresh_state()
+        config = _default_config()
+        sent = []
+
+        with patch("alertbot.alertbot.fetch_metrics", return_value=metrics), \
+             patch("alertbot.alertbot._send_blocks",
+                   side_effect=lambda url, b, f, dr: sent.append(f) or True):
+            run_startup(config, state, NOW, dry_run=False)
+
+        # Should send: 1 startup status + 1 packet alert + 1 client expiry alert
+        assert len(sent) == 3
+        assert any("started" in s.lower() for s in sent)
+        assert any("Unreceived" in s for s in sent)
+        assert any("07-tendermint-42" in s for s in sent)
+
+    def test_run_startup_resends_already_notified_alerts(self):
+        """Startup always re-fires active alerts even if they were already notified."""
+        metrics = _channel_metrics("send", size=1, oldest_seq=50, oldest_ts=NOW - 900)
+        state = _fresh_state()
+        config = _default_config()
+
+        # Simulate a prior notification (cooldown active)
+        key = f"send|injective-1|osmosis-1|transfer|channel-8"
+        state["packets"][key] = {"last_notified": NOW - 30, "first_fired": NOW - 900}
+
+        sent = []
+        with patch("alertbot.alertbot.fetch_metrics", return_value=metrics), \
+             patch("alertbot.alertbot._send_blocks",
+                   side_effect=lambda url, b, f, dr: sent.append(f) or True):
+            run_startup(config, state, NOW, dry_run=False)
+
+        # Alert should appear despite cooldown (force=True on startup)
+        assert any("Unreceived" in s for s in sent)
+
+
 # ── Message rendering (prints all Slack payloads) ─────────────────────────────
 
 
@@ -438,7 +553,7 @@ class TestMessageRendering:
         print("\n=== SEND PACKET — single stuck packet ===")
         _pp(blocks, fallback)
 
-        assert fallback == "Uncommitted packets from injective-1 to osmosis-1"
+        assert fallback == "Unreceived packets from injective-1 to osmosis-1"
         assert any(b.get("type") == "section" for b in blocks)
         context = next(b for b in blocks if b.get("type") == "context")
         assert "634998" in context["elements"][0]["text"]
@@ -527,3 +642,21 @@ class TestMessageRendering:
         assert "EXPIRED" in fallback
         assert "red_circle" in json.dumps(blocks)
         assert "07-tendermint-42" in json.dumps(blocks)
+
+    def test_startup_message(self, capsys):
+        config = _default_config(
+            pending_packet_age_minutes=10,
+            pending_ack_age_minutes=10,
+            client_expiry_warn_pct=[50, 75, 90],
+            repeat_interval_minutes=60,
+            poll_interval_seconds=60,
+        )
+        counts = {"chains": 2, "channels": 8, "clients": 4}
+        blocks, fallback = _startup_blocks(config, counts)
+
+        print("\n=== STARTUP STATUS ===")
+        _pp(blocks, fallback)
+
+        assert "started" in fallback.lower()
+        assert "2" in json.dumps(blocks)
+        assert "8" in json.dumps(blocks)

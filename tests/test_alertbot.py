@@ -269,10 +269,27 @@ class TestCheckPackets:
         state = _fresh_state()
         self._run(metrics, state=state)
         assert len(state["packets"]) == 1
-        # Now report zero backlog (resolved)
+        # Backlog drains to zero
         empty_metrics = _channel_metrics("send", size=0, oldest_seq=50, oldest_ts=NOW - 900)
         self._run(empty_metrics, state=state)
         assert len(state["packets"]) == 0
+
+    def test_state_pruned_when_path_removed_from_metrics(self):
+        """A path that disappears entirely from metrics (e.g. channel closed) is pruned."""
+        metrics = _channel_metrics("send", size=2, oldest_seq=50, oldest_ts=NOW - 900)
+        state = _fresh_state()
+        self._run(metrics, state=state)
+        assert len(state["packets"]) == 1
+        # Path no longer present in metrics at all
+        self._run({}, state=state)
+        assert len(state["packets"]) == 0
+
+    def test_new_path_fires_immediately(self):
+        """A brand-new path above the threshold fires on its first appearance."""
+        metrics = _channel_metrics("send", size=1, oldest_seq=99, oldest_ts=NOW - 900)
+        sent, state = self._run(metrics)
+        assert len(sent) == 1
+        assert len(state["packets"]) == 1
 
     def test_ack_alert_fires_independently(self):
         send_m = _channel_metrics("send", size=0, oldest_seq=1, oldest_ts=NOW - 900)
@@ -366,6 +383,24 @@ class TestCheckClients:
         # Second check — already notified, should not re-fire
         sent2, _ = self._run(metrics, state=state)
         assert len(sent2) == 0
+
+    def test_stale_client_state_pruned_when_removed_from_metrics(self):
+        """Client that disappears from metrics has its state entry cleaned up."""
+        last_update = NOW - TRUSTING_PERIOD * 0.55
+        metrics = _client_metrics(TRUSTING_PERIOD, last_update, "active")
+        state = _fresh_state()
+        self._run(metrics, state=state)
+        assert len(state["clients"]) == 1
+        # Client no longer reported (path decommissioned / omit_inactive_clients)
+        self._run({}, state=state)
+        assert len(state["clients"]) == 0
+
+    def test_new_client_fires_immediately(self):
+        """A new client above a threshold fires on its first appearance."""
+        last_update = NOW - TRUSTING_PERIOD * 0.80
+        metrics = _client_metrics(TRUSTING_PERIOD, last_update, "active")
+        sent, _ = self._run(metrics)
+        assert len(sent) == 1
 
     def test_expired_flag_resets_if_client_recovers(self):
         # Start expired

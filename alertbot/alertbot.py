@@ -664,6 +664,13 @@ def _check_clients(
                     )
                 break  # only fire one threshold per cycle
 
+    # Prune state for clients no longer present in metrics
+    active_client_keys = {c.client_key for c in clients}
+    stale = [k for k in list(state["clients"]) if k not in active_client_keys]
+    for k in stale:
+        logger.info("Removed stale client state: %s", k)
+        del state["clients"][k]
+
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 

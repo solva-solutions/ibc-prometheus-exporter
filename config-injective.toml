@@ -39,11 +39,6 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [chains.excluded_sequences]
-# Stuck unreceived acks on injective source channels (hermes relay_ack_packet_messages).
-# Commitments cleared on injective LCD; exclude here for home-side metrics.
-# Counterparty-side metrics use the matching neutron/osmosis channels below.
-# Neutron counterparty channels: 829→215, 4482→288, 4498→304, 4616→315, 5387→352,
-# 5550→372, 5906→390, 6221→392. Osmosis counterparty: 77133→301.
 channel-8 = ["633997", "634996"]
 channel-215 = ["22-46"]
 channel-288 = ["1-3"]
@@ -138,8 +133,6 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [chains.excluded_sequences]
-# Stuck unreceived acks visible on neutron counterparty channels (commitments live here).
-# Maps to injective source channels in home chain table above.
 channel-4498 = ["58-74", "83-88", "97-102", "125"]   # ← channel-304
 channel-4482 = ["1-3"]                               # ← channel-288
 channel-4616 = ["6-7"]                               # ← channel-315

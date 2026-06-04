@@ -1,0 +1,37 @@
+# IBC Slack Alert Bot — Example Configuration
+# Copy this file to config.toml and fill in your values.
+
+# ── Slack ──────────────────────────────────────────────────────────────────────
+[slack]
+# Incoming Webhook URL from https://api.slack.com/apps → your app → Incoming Webhooks
+webhook_url = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# ── Thresholds ─────────────────────────────────────────────────────────────────
+[thresholds]
+# Fire a pending-send-packet alert when the oldest unrelayed packet on any path
+# has been waiting longer than this many minutes.
+pending_packet_age_minutes = 10
+
+# Same threshold, but for unacknowledged (ack) packets.
+pending_ack_age_minutes = 10
+
+# Repeat pending-packet / pending-ack alerts every N minutes while they remain
+# unresolved. Set high to keep noise low (default: 60 min).
+repeat_interval_minutes = 60
+
+# Fire client-expiry warnings when the trusting period is X% consumed.
+# Multiple thresholds are supported; only the highest un-fired threshold fires
+# per cycle so you get at most one message per crossing.
+client_expiry_warn_pct = [50, 75, 90]
+
+# ── Exporter ───────────────────────────────────────────────────────────────────
+[exporter]
+# URL of the Prometheus metrics endpoint served by ibc-prometheus-exporter.
+metrics_url = "http://localhost:8000/metrics"
+
+# How often to poll the metrics endpoint (seconds).
+poll_interval_seconds = 60
+
+# File where alert state is persisted across restarts.
+# Relative paths are resolved from the working directory.
+state_file = "alertbot_state.json"

@@ -25,7 +25,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 288,
+  "id": 289,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -41,83 +41,6 @@
       "panels": [],
       "title": "Summary",
       "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "description": "Average health of configured REST endpoints selected by chain.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 95
-              },
-              {
-                "color": "green",
-                "value": 100
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 0,
-        "y": 1
-      },
-      "id": 1,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.4",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "100 * avg(ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"})",
-          "instant": true,
-          "legendFormat": "REST availability",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "REST Availability",
-      "type": "stat"
     },
     {
       "datasource": {
@@ -145,9 +68,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 4,
-        "x": 4,
+        "x": 0,
         "y": 1
       },
       "id": 2,
@@ -191,6 +114,83 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Average health of configured REST endpoints selected by chain.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 90
+              },
+              {
+                "color": "green",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "100 *\ncount(\n  max by (chain_id) (\n    ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}\n  ) == 1\n)\n/\ncount(\n  max by (chain_id) (\n    ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}\n  )\n)",
+          "instant": true,
+          "legendFormat": "REST availability",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Chains healthy (REST Availability)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "Total selected SendPacket backlog across chains and channels.",
       "fieldConfig": {
         "defaults": {
@@ -220,7 +220,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 4,
         "x": 8,
         "y": 1
@@ -286,7 +286,7 @@
               },
               {
                 "color": "red",
-                "value": 1800
+                "value": 600
               }
             ]
           },
@@ -295,7 +295,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 4,
         "x": 12,
         "y": 1
@@ -370,7 +370,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 4,
         "x": 16,
         "y": 1
@@ -445,7 +445,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 4,
         "x": 20,
         "y": 1
@@ -492,7 +492,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 4
       },
       "id": 10,
       "panels": [],
@@ -581,7 +581,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 6
+        "y": 5
       },
       "id": 11,
       "options": {
@@ -591,7 +591,9 @@
           ],
           "displayMode": "table",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": true,
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -654,7 +656,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
@@ -681,12 +683,12 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "endpoint"
+              "options": "Value"
             },
             "properties": [
               {
                 "id": "custom.width",
-                "value": 335
+                "value": 100
               }
             ]
           },
@@ -698,7 +700,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 183
+                "value": 163
               }
             ]
           }
@@ -708,7 +710,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 6
+        "y": 5
       },
       "id": 12,
       "options": {
@@ -732,7 +734,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}",
+          "expr": "ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"} == 1",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{endpoint}}",
@@ -796,7 +798,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 6
+        "y": 5
       },
       "id": 13,
       "options": {
@@ -841,7 +843,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 14
       },
       "id": 20,
       "panels": [],
@@ -914,9 +916,9 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 12,
+        "w": 15,
         "x": 0,
-        "y": 16
+        "y": 15
       },
       "id": 21,
       "options": {
@@ -942,14 +944,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id) (ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
+          "expr": "sum by (chain_id,channel_id) (ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
           "instant": false,
-          "legendFormat": "{{chain_id}}",
+          "legendFormat": "{{chain_id}} / {{channel_id}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Send Backlog By Chain",
+      "title": "Send Backlog By Path",
       "type": "timeseries"
     },
     {
@@ -987,9 +989,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 12,
-        "x": 12,
-        "y": 16
+        "w": 9,
+        "x": 15,
+        "y": 15
       },
       "id": 23,
       "options": {
@@ -1062,9 +1064,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 19
+        "w": 9,
+        "x": 15,
+        "y": 18
       },
       "id": 22,
       "options": {
@@ -1116,7 +1118,7 @@
           "custom": {
             "align": "auto",
             "cellOptions": {
-              "type": "color-background"
+              "type": "auto"
             },
             "inspect": false
           },
@@ -1176,14 +1178,60 @@
                 "value": 194
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pending since"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 300
+                    },
+                    {
+                      "color": "red",
+                      "value": 600
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Oldest Sequence"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
           }
         ]
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 15,
         "x": 0,
-        "y": 23
+        "y": 22
       },
       "id": 26,
       "options": {
@@ -1207,44 +1255,97 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(50, (time() - ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0)",
+          "expr": "label_join(\n  topk(\n    50,\n    (\n      time() - ibc_send_packet_backlog_oldest_timestamp_seconds{\n        job=~\"${job:regex}\",\n        chain_id=~\"${chain_id:regex}\",\n        counterparty_chain_id=~\"${counterparty_chain_id:regex}\",\n        connection_id=~\"${connection_id:regex}\",\n        port_id=~\"${port_id:regex}\",\n        channel_id=~\"${channel_id:regex}\"\n      }\n    )\n    and\n    (\n      ibc_send_packet_backlog_oldest_timestamp_seconds{\n        job=~\"${job:regex}\",\n        chain_id=~\"${chain_id:regex}\",\n        counterparty_chain_id=~\"${counterparty_chain_id:regex}\",\n        connection_id=~\"${connection_id:regex}\",\n        port_id=~\"${port_id:regex}\",\n        channel_id=~\"${channel_id:regex}\"\n      } > 0\n    )\n  ),\n  \"join_key\",\n  \"/\",\n  \"chain_id\",\n  \"port_id\",\n  \"channel_id\"\n)",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
           "range": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_join(\n  topk(\n    50,\n    ibc_send_packet_backlog_oldest_sequence{\n      job=~\"${job:regex}\",\n      chain_id=~\"${chain_id:regex}\",\n      counterparty_chain_id=~\"${counterparty_chain_id:regex}\",\n      connection_id=~\"${connection_id:regex}\",\n      port_id=~\"${port_id:regex}\",\n      channel_id=~\"${channel_id:regex}\"\n    } > 0\n  ),\n  \"join_key\",\n  \"/\",\n  \"chain_id\",\n  \"port_id\",\n  \"channel_id\"\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
+          "range": false,
+          "refId": "B"
         }
       ],
       "title": "Oldest Send Age Inventory",
       "transformations": [
         {
+          "id": "joinByField",
+          "options": {
+            "byField": "join_key",
+            "mode": "outerTabular"
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "__name__": true,
+              "chain_id 2": true,
+              "channel_id 2": true,
               "connection_id": true,
+              "connection_id 2": true,
+              "counterparty_chain_id 2": true,
               "counterparty_channel_id": true,
+              "counterparty_channel_id 2": true,
               "counterparty_port_id": true,
+              "counterparty_port_id 2": true,
               "instance": true,
+              "instance 2": true,
               "job": true,
-              "network": true
+              "job 2": true,
+              "join_key": true,
+              "join_key 1": true,
+              "network": true,
+              "network 2": true,
+              "port_id 2": true
             },
             "includeByName": {},
             "indexByName": {
-              "Time": 0,
-              "Value": 11,
-              "chain_id": 1,
-              "channel_id": 2,
-              "connection_id": 3,
-              "counterparty_chain_id": 5,
-              "counterparty_channel_id": 6,
-              "counterparty_port_id": 7,
-              "instance": 8,
-              "job": 9,
-              "network": 10,
-              "port_id": 4
+              "Time 1": 1,
+              "Time 2": 13,
+              "Value #A": 12,
+              "Value #B": 25,
+              "__name__": 14,
+              "chain_id 1": 2,
+              "chain_id 2": 15,
+              "channel_id 1": 3,
+              "channel_id 2": 16,
+              "connection_id 1": 5,
+              "connection_id 2": 17,
+              "counterparty_chain_id 1": 6,
+              "counterparty_chain_id 2": 18,
+              "counterparty_channel_id 1": 7,
+              "counterparty_channel_id 2": 19,
+              "counterparty_port_id 1": 8,
+              "counterparty_port_id 2": 20,
+              "instance 1": 9,
+              "instance 2": 21,
+              "job 1": 10,
+              "job 2": 22,
+              "join_key": 0,
+              "network 1": 11,
+              "network 2": 23,
+              "port_id 1": 4,
+              "port_id 2": 24
             },
             "renameByName": {
-              "Value": "Pending since"
+              "Value": "Pending since",
+              "Value #A": "Pending since",
+              "Value #B": "Oldest Sequence"
             }
           }
         }
@@ -1286,9 +1387,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 25
+        "w": 9,
+        "x": 15,
+        "y": 24
       },
       "id": 24,
       "options": {
@@ -1380,10 +1481,10 @@
         ]
       },
       "gridPos": {
-        "h": 11,
+        "h": 14,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 30
       },
       "id": 25,
       "options": {
@@ -1396,7 +1497,8 @@
           ],
           "show": false
         },
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": []
       },
       "pluginVersion": "11.1.4",
       "targets": [
@@ -1455,7 +1557,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 44
       },
       "id": 60,
       "panels": [],
@@ -1529,9 +1631,9 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 12,
+        "w": 15,
         "x": 0,
-        "y": 43
+        "y": 45
       },
       "id": 61,
       "options": {
@@ -1557,14 +1659,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id) ((ibc_ack_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
+          "expr": "sum by (chain_id, channel_id) ((ibc_ack_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
           "instant": false,
-          "legendFormat": "{{chain_id}}",
+          "legendFormat": "{{chain_id}} / {{channel_id}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Ack Backlog By Chain",
+      "title": "Ack Backlog By Path",
       "type": "timeseries"
     },
     {
@@ -1602,9 +1704,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 12,
-        "x": 12,
-        "y": 43
+        "w": 9,
+        "x": 15,
+        "y": 45
       },
       "id": 65,
       "options": {
@@ -1677,9 +1779,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 46
+        "w": 9,
+        "x": 15,
+        "y": 48
       },
       "id": 62,
       "options": {
@@ -1732,7 +1834,7 @@
           "custom": {
             "align": "auto",
             "cellOptions": {
-              "type": "color-background"
+              "type": "auto"
             },
             "inspect": false
           },
@@ -1792,14 +1894,40 @@
                 "value": 194
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pending since"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Oldest sequence"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
           }
         ]
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 15,
         "x": 0,
-        "y": 50
+        "y": 52
       },
       "id": 64,
       "options": {
@@ -1823,44 +1951,103 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(50, (time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0)",
+          "expr": "label_join(\n  topk(\n    50,\n    (\n      time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{\n        job=~\"${job:regex}\",\n        chain_id=~\"${chain_id:regex}\",\n        counterparty_chain_id=~\"${counterparty_chain_id:regex}\",\n        connection_id=~\"${connection_id:regex}\",\n        port_id=~\"${port_id:regex}\",\n        channel_id=~\"${channel_id:regex}\"\n      }\n    )\n    and\n    (\n      ibc_ack_packet_backlog_oldest_timestamp_seconds{\n        job=~\"${job:regex}\",\n        chain_id=~\"${chain_id:regex}\",\n        counterparty_chain_id=~\"${counterparty_chain_id:regex}\",\n        connection_id=~\"${connection_id:regex}\",\n        port_id=~\"${port_id:regex}\",\n        channel_id=~\"${channel_id:regex}\"\n      }\n    ) > 0\n  ),\n  \"join_key\",\n  \"/\",\n  \"chain_id\",\n  \"port_id\",\n  \"channel_id\"\n)",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
           "range": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_join(\n  topk(\n    50,\n    ibc_ack_packet_backlog_oldest_sequence{\n      job=~\"${job:regex}\",\n      chain_id=~\"${chain_id:regex}\",\n      counterparty_chain_id=~\"${counterparty_chain_id:regex}\",\n      connection_id=~\"${connection_id:regex}\",\n      port_id=~\"${port_id:regex}\",\n      channel_id=~\"${channel_id:regex}\"\n    } > 0\n  ),\n  \"join_key\",\n  \"/\",\n  \"chain_id\",\n  \"port_id\",\n  \"channel_id\"\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "B"
         }
       ],
       "title": "Oldest Ack Age Inventory",
       "transformations": [
         {
+          "id": "joinByField",
+          "options": {
+            "byField": "join_key",
+            "mode": "outer"
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "__name__": true,
+              "chain_id 2": true,
+              "channel_id 2": true,
               "connection_id": true,
+              "connection_id 2": true,
+              "counterparty_chain_id 2": true,
               "counterparty_channel_id": true,
+              "counterparty_channel_id 1": true,
+              "counterparty_channel_id 2": true,
               "counterparty_port_id": true,
+              "counterparty_port_id 1": true,
+              "counterparty_port_id 2": true,
               "instance": true,
+              "instance 1": true,
+              "instance 2": true,
               "job": true,
-              "network": true
+              "job 1": true,
+              "job 2": true,
+              "join_key": true,
+              "join_key 1": true,
+              "network": true,
+              "network 1": true,
+              "network 2": true,
+              "port_id 1": false,
+              "port_id 2": true
             },
             "includeByName": {},
             "indexByName": {
-              "Time": 0,
-              "Value": 11,
-              "chain_id": 1,
-              "channel_id": 2,
-              "connection_id": 3,
-              "counterparty_chain_id": 5,
-              "counterparty_channel_id": 6,
-              "counterparty_port_id": 7,
-              "instance": 8,
-              "job": 9,
-              "network": 10,
-              "port_id": 4
+              "Time 1": 0,
+              "Time 2": 12,
+              "Value #A": 11,
+              "Value #B": 24,
+              "__name__": 13,
+              "chain_id 1": 1,
+              "chain_id 2": 14,
+              "channel_id 1": 2,
+              "channel_id 2": 15,
+              "connection_id 1": 4,
+              "connection_id 2": 16,
+              "counterparty_chain_id 1": 5,
+              "counterparty_chain_id 2": 17,
+              "counterparty_channel_id 1": 6,
+              "counterparty_channel_id 2": 18,
+              "counterparty_port_id 1": 7,
+              "counterparty_port_id 2": 19,
+              "instance 1": 8,
+              "instance 2": 20,
+              "job 1": 9,
+              "job 2": 21,
+              "join_key": 25,
+              "network 1": 10,
+              "network 2": 22,
+              "port_id 1": 3,
+              "port_id 2": 23
             },
             "renameByName": {
-              "Value": "Pending since"
+              "Value": "Pending since",
+              "Value #A": "Pending since",
+              "Value #B": "Oldest sequence"
             }
           }
         }
@@ -1902,9 +2089,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 52
+        "w": 9,
+        "x": 15,
+        "y": 54
       },
       "id": 66,
       "options": {
@@ -2000,7 +2187,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 60
       },
       "id": 63,
       "options": {
@@ -2072,7 +2259,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 69
+        "y": 71
       },
       "id": 30,
       "panels": [],
@@ -2105,10 +2292,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 70
+        "y": 72
       },
       "id": 31,
       "options": {
@@ -2184,7 +2371,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 70
+        "y": 72
       },
       "id": 33,
       "options": {
@@ -2261,7 +2448,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 70
+        "y": 72
       },
       "id": 32,
       "options": {
@@ -2298,6 +2485,81 @@
       ],
       "title": "Max Trust Period Used",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 76
+      },
+      "id": 34,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "topk(100, (100 * (time() - ibc_client_last_update_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) / ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) and on (client_id, chain_id, counterparty_chain_id, counterparty_client_id) ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"} > 0)",
+          "instant": true,
+          "legendFormat": "{{chain_id}} {{client_id}} -> {{counterparty_chain_id}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Clients Closest To Trust Expiry",
+      "type": "bargauge"
     },
     {
       "datasource": {
@@ -2344,10 +2606,10 @@
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 9,
         "w": 12,
-        "x": 12,
-        "y": 74
+        "x": 0,
+        "y": 79
       },
       "id": 35,
       "options": {
@@ -2400,87 +2662,12 @@
       "type": "table"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 90
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 78
-      },
-      "id": 34,
-      "options": {
-        "displayMode": "gradient",
-        "maxVizHeight": 300,
-        "minVizHeight": 10,
-        "minVizWidth": 0,
-        "namePlacement": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true,
-        "sizing": "auto",
-        "valueMode": "color"
-      },
-      "pluginVersion": "11.1.4",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "topk(100, (100 * (time() - ibc_client_last_update_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) / ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) and on (client_id, chain_id, counterparty_chain_id, counterparty_client_id) ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"} > 0)",
-          "instant": true,
-          "legendFormat": "{{chain_id}} {{client_id}} -> {{counterparty_chain_id}}",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "Clients Closest To Trust Expiry",
-      "type": "bargauge"
-    },
-    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 86
+        "y": 88
       },
       "id": 40,
       "panels": [],
@@ -2515,7 +2702,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 87
+        "y": 89
       },
       "id": 41,
       "options": {
@@ -2602,7 +2789,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 87
+        "y": 89
       },
       "id": 42,
       "options": {
@@ -2677,7 +2864,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 93
+        "y": 95
       },
       "id": 50,
       "panels": [],
@@ -2752,7 +2939,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 94
+        "y": 96
       },
       "id": 51,
       "options": {
@@ -2856,7 +3043,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 94
+        "y": 96
       },
       "id": 52,
       "options": {
@@ -2914,7 +3101,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "orange",
@@ -2947,7 +3135,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 102
+        "y": 104
       },
       "id": 54,
       "options": {
@@ -3018,7 +3206,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "orange",
@@ -3051,7 +3240,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 102
+        "y": 104
       },
       "id": 53,
       "options": {
@@ -3354,6 +3543,6 @@
   "timezone": "browser",
   "title": "IBC Prometheus Exporter",
   "uid": "ibc-prometheus-exporter",
-  "version": 7,
+  "version": 8,
   "weekStart": ""
 }

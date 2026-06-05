@@ -1,0 +1,262 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# IBC Prometheus Exporter config — Kava SA
+# Home chain  : kava_2222-10
+# Counterparties: osmosis-1, cosmoshub-4, akashnet-2,
+#                 umee-1, injective-1, phoenix-1, agoric-3, dydx-mainnet-1,
+#                 noble-1, celestia, dymension_1100-1, secret-4
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ════════════════════════════════════════════════════════════
+# HOME CHAIN
+# ════════════════════════════════════════════════════════════
+
+[[chains]]
+name = "kava"
+chain_id = "kava_2222-10"
+rpcs = [""]
+rests = [""]
+home_chain = true
+whitelist_clients = [
+    "07-tendermint-1",    # → cosmoshub-4   (channel-0)
+    "07-tendermint-2",    # → osmosis-1     (channel-1)
+    "07-tendermint-6",    # → akashnet-2    (channel-5)
+    "07-tendermint-124",  # → umee-1        (channel-119)
+    "07-tendermint-130",  # → injective-1   (channel-122)
+    "07-tendermint-139",  # → phoenix-1     (channel-129)
+    "07-tendermint-147",  # → agoric-3      (channel-133)
+    "07-tendermint-154",  # → dydx-mainnet-1 (channel-137)
+    "07-tendermint-156",  # → phoenix-1     (channel-138)
+    "07-tendermint-157",  # → noble-1       (channel-139)
+    "07-tendermint-158",  # → celestia      (channel-140)
+    "07-tendermint-162",  # → dymension_1100-1 (channel-144)
+    "07-tendermint-166",  # → secret-4      (channel-148)
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+# ════════════════════════════════════════════════════════════
+# COUNTERPARTY CHAINS
+# ════════════════════════════════════════════════════════════
+
+[[chains]]
+name = "osmosis"
+chain_id = "osmosis-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-1735",  # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "cosmoshub"
+chain_id = "cosmoshub-4"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-557",   # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "akash"
+chain_id = "akashnet-2"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-91",    # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "umee"
+chain_id = "umee-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-229",   # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "injective"
+chain_id = "injective-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-205",   # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "terra"
+chain_id = "phoenix-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-330",   # → kava_2222-10 (channel-216)
+    "07-tendermint-386",   # → kava_2222-10 (channel-272)
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "agoric"
+chain_id = "agoric-3"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-78",    # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "dydx"
+chain_id = "dydx-mainnet-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-7",     # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "noble"
+chain_id = "noble-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-62",    # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "celestia"
+chain_id = "celestia"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-49",    # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "dymension"
+chain_id = "dymension_1100-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-3",     # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "secret"
+chain_id = "secret-4"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-206",   # → kava_2222-10
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+# ════════════════════════════════════════════════════════════
+# EXPORTER SETTINGS
+# ════════════════════════════════════════════════════════════
+
+[exporter]
+address = "0.0.0.0"
+port = 8114
+update_interval_seconds = 30
+log_level = "INFO"
+enable_chain_registry_fallbacks = true
+omit_closed_channels = true
+omit_inactive_clients = false

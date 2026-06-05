@@ -14,7 +14,9 @@
 name = "kava"
 chain_id = "kava_2222-10"
 rpcs = [""]
-rests = [""]
+rests = [
+    "https://rest.cosmos.directory:443/kava"
+]
 home_chain = true
 whitelist_clients = [
     "07-tendermint-1",    # → cosmoshub-4   (channel-0)

@@ -27,6 +27,9 @@ whitelist_clients = [
     "07-tendermint-216",  # → phoenix-1
     "07-tendermint-233",  # → neutron-1
     "07-tendermint-256",  # → dydx-mainnet-1
+    "07-tendermint-328",  # → agoric-3
+    "07-tendermint-329",  # → interwoven-1
+    "07-tendermint-330",  # → zigchain-1
 ]
 blacklist_clients = []
 whitelist_connections = []
@@ -149,8 +152,8 @@ rpcs = [
 ]
 rests = [""]
 home_chain = false
-# No active clients — all injective-1↔agoric-3 clients are expired
-whitelist_clients = []
+# Active client on agoric-3 tracking injective-1: 07-tendermint-126
+whitelist_clients = ["07-tendermint-126"]
 blacklist_clients = []
 whitelist_connections = []
 blacklist_connections = []
@@ -205,8 +208,8 @@ rpcs = [
 ]
 rests = [""]
 home_chain = false
-# No paths created yet — whitelist empty until client/connection established
-whitelist_clients = []
+# Active client on interwoven-1 tracking injective-1: 07-tendermint-64
+whitelist_clients = ["07-tendermint-64"]
 blacklist_clients = []
 whitelist_connections = []
 blacklist_connections = []
@@ -223,8 +226,8 @@ rpcs = [
 ]
 rests = [""]
 home_chain = false
-# No paths created yet — whitelist empty until client/connection established
-whitelist_clients = []
+# Active client on zigchain-1 tracking injective-1: 07-tendermint-5
+whitelist_clients = ["07-tendermint-5"]
 blacklist_clients = []
 whitelist_connections = []
 blacklist_connections = []

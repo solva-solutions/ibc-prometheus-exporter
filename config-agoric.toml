@@ -21,7 +21,6 @@ whitelist_clients = [
     "07-tendermint-1",    # → osmosis-1
     "07-tendermint-6",    # → cosmoshub-4
     "07-tendermint-11",   # → axelar-dojo-1
-    "07-tendermint-17",   # → secret-4
     "07-tendermint-77",   # → noble-1
     "07-tendermint-78",   # → kava_2222-10
     "07-tendermint-93",   # → core-1
@@ -38,7 +37,6 @@ state_scan_timeout = 600
 [chains.excluded_sequences]
 channel-1  = ["114800-118396"]  # agoric-3 → osmosis-1
 channel-9  = [11768]            # agoric-3 → axelar-dojo-1
-channel-10 = ["7443-7558"]      # agoric-3 → secret-4
 channel-62 = ["1-3421"]         # agoric-3 → noble-1
 
 # ════════════════════════════════════════════════════════════
@@ -161,25 +159,6 @@ rests = [""]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-147",   # → agoric-3
-]
-blacklist_clients = []
-whitelist_connections = []
-blacklist_connections = []
-whitelist_channels = []
-blacklist_channels = []
-state_refresh_interval = 1200
-state_scan_timeout = 600
-
-[[chains]]
-name = "secret"
-chain_id = "secret-4"
-rpcs = [""]
-rests = [
-    "http://37.252.186.102:1317"
-]
-home_chain = false
-whitelist_clients = [
-    "07-tendermint-111",   # → agoric-3
 ]
 blacklist_clients = []
 whitelist_connections = []

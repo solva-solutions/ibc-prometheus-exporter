@@ -15,7 +15,8 @@ name = "kava"
 chain_id = "kava_2222-10"
 rpcs = [""]
 rests = [
-    "https://rest.cosmos.directory:443/kava"
+    "https://lb.nodies.app:443/v1/5113efe87f7d49cd85b369f0d8799243",
+    "https://api.data.kava.io:443"
 ]
 home_chain = true
 whitelist_clients = [
@@ -236,8 +237,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "secret"
 chain_id = "secret-4"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "http://37.252.186.102:26657"
+]
+rests = [
+    "http://37.252.186.102:1317"
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-206",   # → kava_2222-10

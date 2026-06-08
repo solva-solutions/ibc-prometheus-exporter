@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import List, Optional, Set
 
 import requests
@@ -57,6 +58,7 @@ class RESTClient:
         self.enable_chain_registry_fallbacks = enable_chain_registry_fallbacks
         self._loaded_fallbacks = not enable_chain_registry_fallbacks
         self.unhealthy: Set[str] = set()
+        self._lock = threading.Lock()
 
     def _load_fallbacks(self) -> None:
         """Load REST fallbacks from the Cosmos chain-registry."""
@@ -92,10 +94,13 @@ class RESTClient:
         endpoints = self.endpoints()
         if not endpoints:
             return False
-        if len(self.unhealthy) >= len(endpoints):
-            self.unhealthy.clear()
+        with self._lock:
+            if len(self.unhealthy) >= len(endpoints):
+                self.unhealthy.clear()
         for ep in endpoints:
-            if ep in self.unhealthy:
+            with self._lock:
+                skip = ep in self.unhealthy
+            if skip:
                 continue
             try:
                 url = f"{ep}/cosmos/base/tendermint/v1beta1/node_info"
@@ -109,15 +114,18 @@ class RESTClient:
                         chain_id,
                         self.expected_chain_id,
                     )
-                    self.unhealthy.add(ep)
+                    with self._lock:
+                        self.unhealthy.add(ep)
                     continue
-                if ep != self.endpoint:
-                    logger.info("Switching endpoint from %s to %s", self.endpoint, ep)
-                    self.endpoint = ep
+                with self._lock:
+                    if ep != self.endpoint:
+                        logger.info("Switching endpoint from %s to %s", self.endpoint, ep)
+                        self.endpoint = ep
                 return True
             except Exception as e:  # pragma: no cover - network failures
                 logger.warning("REST health check failed for %s: %s", ep, e)
-                self.unhealthy.add(ep)
+                with self._lock:
+                    self.unhealthy.add(ep)
                 continue
         return False
 
@@ -154,7 +162,8 @@ class RESTClient:
             except Exception as e:  # pragma: no cover - network failures
                 last_error = e
                 logger.warning("REST query failed for %s: %s", url, e)
-                self.unhealthy.add(self.endpoint)
+                with self._lock:
+                    self.unhealthy.add(self.endpoint)
                 if not self.health():
                     break
                 endpoints = self.endpoints()

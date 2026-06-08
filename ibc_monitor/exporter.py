@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote_plus
 from decimal import Decimal, InvalidOperation
 from prometheus_client import start_http_server
@@ -442,6 +443,271 @@ class IBCExporter:
         # 3) last resort -> unknown
         return None
 
+    # ---- concurrency helpers ----
+
+    def _check_chain_health(self, chain_id: str, client: RESTClient) -> bool:
+        """Run a health check for one chain. Safe to call from a thread pool."""
+        try:
+            return client.health()
+        except Exception:
+            logger.exception("Chain %s health check failed", chain_id)
+            self._inc_error(chain_id, "health")
+            return False
+
+    def _update_home_client_metrics(
+        self,
+        cid: str,
+        home_chain_id: str,
+        now: int,
+        active_client_status_labelsets: set,
+    ) -> None:
+        """Fetch and record client-state metrics for a single home-chain client."""
+        cp_chain = self.scanner.client_chain_map.get(cid, "")
+        cp_client = self.scanner.client_counterparty_client_ids.get(cid, "")
+        status = getattr(self.scanner, "client_status_map", {}).get(cid, "unknown")
+        self._record_client_status(
+            active_client_status_labelsets,
+            home_chain_id,
+            cid,
+            cp_chain,
+            cp_client,
+            status,
+        )
+        try:
+            cs = self.home_client.query(f"/ibc/core/client/v1/client_states/{cid}")
+            client_state = cs.get("client_state", {}) or {}
+            tp_str = client_state.get("trusting_period", "") or ""
+            tp = parse_duration(tp_str)
+            cp_chain = client_state.get("chain_id", "") or cp_chain
+            CLIENT_TRUSTING_PERIOD.labels(
+                client_id=cid,
+                chain_id=home_chain_id,
+                counterparty_chain_id=cp_chain,
+                counterparty_client_id=cp_client,
+            ).set(tp)
+            last_ts = self._latest_consensus_timestamp(self.home_client, cid, now)
+            if last_ts is not None:
+                CLIENT_LAST_UPDATE.labels(
+                    client_id=cid,
+                    chain_id=home_chain_id,
+                    counterparty_chain_id=cp_chain,
+                    counterparty_client_id=cp_client,
+                ).set(last_ts)
+        except Exception as e:
+            self._inc_error(home_chain_id, "client_state")
+            logger.warning("Home client metrics failed for %s: %s", cid, e)
+
+    def _update_cp_client_metrics(
+        self,
+        cp_chain: str,
+        pairs: set,
+        home_chain_id: str,
+        now: int,
+        active_client_status_labelsets: set,
+        health_by_chain: dict,
+    ) -> None:
+        """Fetch and record client-state metrics for all clients on one counterparty chain."""
+        rc = self.rest_by_chain.get(cp_chain)
+        if not rc or not health_by_chain.get(cp_chain, False):
+            return
+        for cp_client, home_client in pairs:
+            status = getattr(self.scanner, "cp_client_status_map", {}).get((cp_chain, cp_client))
+            if not status:
+                try:
+                    status = self._query_client_status(
+                        rc, cp_client, self.home_chain_cfg.state_scan_timeout
+                    )
+                except Exception as e:
+                    self._inc_error(cp_chain, "client_status")
+                    if getattr(self.cfg, "omit_inactive_clients", False):
+                        logger.warning(
+                            "Counterparty client status failed for %s on %s: %s",
+                            cp_client, cp_chain, e,
+                        )
+                        continue
+                    status = "unknown"
+            if getattr(self.cfg, "omit_inactive_clients", False) and status not in ACTIVE_CLIENT_STATUSES:
+                continue
+            self._record_client_status(
+                active_client_status_labelsets,
+                cp_chain,
+                cp_client,
+                home_chain_id,
+                home_client,
+                status,
+            )
+            try:
+                cs_cp = rc.query(f"/ibc/core/client/v1/client_states/{cp_client}")
+                cp_state = cs_cp.get("client_state", {}) or {}
+                tp_str_cp = cp_state.get("trusting_period", "") or ""
+                tp_cp = parse_duration(tp_str_cp)
+                CLIENT_TRUSTING_PERIOD.labels(
+                    client_id=cp_client,
+                    chain_id=cp_chain,
+                    counterparty_chain_id=self.home_chain_cfg.chain_id,
+                    counterparty_client_id=home_client,
+                ).set(tp_cp)
+            except Exception as e:
+                self._inc_error(cp_chain, "client_state")
+                logger.debug("cp client_states failed for %s on %s: %s", cp_client, cp_chain, e)
+                continue
+            try:
+                last_ts_cp = self._latest_consensus_timestamp(rc, cp_client, now)
+                if last_ts_cp is not None:
+                    CLIENT_LAST_UPDATE.labels(
+                        client_id=cp_client,
+                        chain_id=cp_chain,
+                        counterparty_chain_id=home_chain_id,
+                        counterparty_client_id=home_client,
+                    ).set(last_ts_cp)
+            except Exception as e:
+                self._inc_error(cp_chain, "client_state")
+                logger.debug("cp consensus_states failed for %s on %s: %s", cp_client, cp_chain, e)
+
+    def _process_home_channel_backlog(
+        self,
+        channel_info: tuple,
+        home_chain_id: str,
+        now: int,
+        health_by_chain: dict,
+        active_labelsets: set,
+        active_channel_state_labelsets: set,
+        failed_backlog_chains: set,
+    ) -> None:
+        """Query and record send+ack backlog for a single home-chain channel."""
+        conn, port, channel, cp_port, cp_channel, cp_chain = channel_info
+        key_home = (home_chain_id, conn, port, channel)
+        label_values = self._metric_labels_tuple(
+            home_chain_id, conn, port, channel, cp_chain, cp_port, cp_channel
+        )
+        self._record_channel_state(
+            active_channel_state_labelsets,
+            label_values,
+            getattr(self.scanner, "channel_state_map", {}).get(key_home, "unknown"),
+        )
+        try:
+            sp_items = self._query_all_list(
+                self.home_client,
+                f"/ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments",
+                "commitments",
+                timeout=self.home_chain_cfg.state_scan_timeout,
+            )
+            seqs = self._parse_sequences(sp_items, channel)
+            valid_seqs = [
+                s for s in seqs
+                if not self.cfg.excluded_sequences.is_excluded(channel, s, home_chain_id)
+            ]
+            self._record_send_backlog(label_values, key_home, valid_seqs, now)
+            active_labelsets.add(label_values)
+        except Exception as e:
+            failed_backlog_chains.add(home_chain_id)
+            self._inc_error(home_chain_id, "backlog")
+            logger.warning("Send backlog query failed for %s/%s on %s: %s", port, channel, home_chain_id, e)
+            return
+
+        rc = self.rest_by_chain.get(cp_chain)
+        if not valid_seqs:
+            self._record_ack_backlog(label_values, key_home, set(), now)
+        elif rc and health_by_chain.get(cp_chain, False):
+            try:
+                acked_on_cp = self._filtered_ack_sequences(rc, cp_port, cp_channel, valid_seqs)
+                unreceived = self._unreceived_acks(self.home_client, port, channel, acked_on_cp)
+                self._record_ack_backlog(label_values, key_home, unreceived, now)
+            except Exception as e:
+                failed_backlog_chains.add(home_chain_id)
+                self._inc_error(home_chain_id, "ack")
+                logger.warning("Ack backlog query failed for %s/%s on %s: %s", port, channel, home_chain_id, e)
+        else:
+            failed_backlog_chains.add(home_chain_id)
+            self._inc_error(home_chain_id, "ack")
+            logger.warning(
+                "Ack backlog skipped for %s/%s on %s: counterparty chain %s is unavailable",
+                port, channel, home_chain_id, cp_chain,
+            )
+
+        pending = self.pending_packets.get(key_home, {})
+        apending = self.pending_acks.get(key_home, {})
+        oldest_seq, oldest_ts, oldest_age = self._pending_summary(pending, now)
+        aoldest_seq, aoldest_ts, aoldest_age = self._pending_summary(apending, now)
+        logger.info(
+            "[%s %s/%s] backlog=%d oldest=%d age=%ds ack_backlog=%d ack_oldest=%d ack_age=%ds",
+            home_chain_id, port, channel,
+            len(pending), oldest_seq, oldest_age,
+            len(apending), aoldest_seq, aoldest_age,
+        )
+
+    def _process_cp_channel_backlog(
+        self,
+        channel_info: tuple,
+        now: int,
+        health_by_chain: dict,
+        active_labelsets: set,
+        active_channel_state_labelsets: set,
+        failed_backlog_chains: set,
+    ) -> None:
+        """Query and record send+ack backlog for a single counterparty-chain channel."""
+        cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id = channel_info
+        rc = self.rest_by_chain.get(cp_chain)
+        label_values = self._metric_labels_tuple(
+            cp_chain, cp_conn, port, channel, home_chain_id, cp_port, cp_channel
+        )
+        self._record_channel_state(
+            active_channel_state_labelsets,
+            label_values,
+            getattr(self.scanner, "cp_channel_state_map", {}).get(
+                (cp_chain, cp_conn, port, channel), "unknown"
+            ),
+        )
+        if not rc or not health_by_chain.get(cp_chain, False):
+            failed_backlog_chains.add(cp_chain)
+            return
+
+        key_cp = (cp_chain, cp_conn, port, channel)
+        try:
+            sp_items = self._query_all_list(
+                rc,
+                f"/ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments",
+                "commitments",
+                timeout=self.home_chain_cfg.state_scan_timeout,
+            )
+            seqs = self._parse_sequences(sp_items, channel)
+            valid_seqs = [
+                s for s in seqs
+                if not self.cfg.excluded_sequences.is_excluded(channel, s, cp_chain)
+            ]
+            self._record_send_backlog(label_values, key_cp, valid_seqs, now)
+            active_labelsets.add(label_values)
+        except Exception as e:
+            failed_backlog_chains.add(cp_chain)
+            self._inc_error(cp_chain, "backlog")
+            logger.warning("Send backlog query failed for %s/%s on %s: %s", port, channel, cp_chain, e)
+            return
+
+        if not valid_seqs:
+            self._record_ack_backlog(label_values, key_cp, set(), now)
+        else:
+            try:
+                acked_on_home = self._filtered_ack_sequences(
+                    self.home_client, cp_port, cp_channel, valid_seqs
+                )
+                unreceived_cp = self._unreceived_acks(rc, port, channel, acked_on_home)
+                self._record_ack_backlog(label_values, key_cp, unreceived_cp, now)
+            except Exception as e:
+                failed_backlog_chains.add(cp_chain)
+                self._inc_error(cp_chain, "ack")
+                logger.warning("Ack backlog query failed for %s/%s on %s: %s", port, channel, cp_chain, e)
+
+        pending = self.pending_packets.get(key_cp, {})
+        apending = self.pending_acks.get(key_cp, {})
+        oldest_seq, oldest_ts, oldest_age = self._pending_summary(pending, now)
+        aoldest_seq, aoldest_ts, aoldest_age = self._pending_summary(apending, now)
+        logger.info(
+            "[%s %s/%s] backlog=%d oldest=%d age=%ds ack_backlog=%d ack_oldest=%d ack_age=%ds",
+            cp_chain, port, channel,
+            len(pending), oldest_seq, oldest_age,
+            len(apending), aoldest_seq, aoldest_age,
+        )
+
     def run(self):
         # start prometheus server
         start_http_server(self.cfg.port, addr=self.cfg.address)
@@ -464,25 +730,19 @@ class IBCExporter:
         failed_backlog_chains = set()
         health_by_chain = {}
 
-        # Health checks for home + counterparties
-        try:
-            home_healthy = self.home_client.health()
-        except Exception:
-            logger.exception("Home chain %s health check failed", home_chain_id)
-            self._inc_error(home_chain_id, "health")
-            home_healthy = False
-        health_by_chain[home_chain_id] = home_healthy
-        self._set_rest_health(home_chain_id, self.home_client.endpoint, home_healthy)
-
-        for cid, rc in self.rest_by_chain.items():
-            try:
-                healthy = rc.health()
-            except Exception:
-                logger.exception("Counterparty chain %s health check failed", cid)
-                self._inc_error(cid, "health")
-                healthy = False
-            health_by_chain[cid] = healthy
-            self._set_rest_health(cid, rc.endpoint, healthy)
+        # Health checks for home + counterparties — all chains in parallel
+        all_chain_clients = [(home_chain_id, self.home_client)] + list(self.rest_by_chain.items())
+        with ThreadPoolExecutor(max_workers=len(all_chain_clients)) as executor:
+            health_futures = {
+                executor.submit(self._check_chain_health, cid, rc): (cid, rc)
+                for cid, rc in all_chain_clients
+            }
+            for future in as_completed(health_futures):
+                cid, rc = health_futures[future]
+                healthy = future.result()
+                health_by_chain[cid] = healthy
+                self._set_rest_health(cid, rc.endpoint, healthy)
+        home_healthy = health_by_chain.get(home_chain_id, False)
 
         if not home_healthy:
             logger.debug("Home chain %s endpoint unhealthy; skipping scan/metrics this cycle", home_chain_id)
@@ -495,276 +755,56 @@ class IBCExporter:
             UPDATE_DURATION.labels(chain_id=home_chain_id).set(time.monotonic() - started)
             return
 
-        # -------- client state metrics (home) --------
-        for cid in self.scanner.clients:
-            cp_chain = self.scanner.client_chain_map.get(cid, "")
-            cp_client = self.scanner.client_counterparty_client_ids.get(cid, "")
-            status = getattr(self.scanner, "client_status_map", {}).get(cid, "unknown")
-            self._record_client_status(
-                active_client_status_labelsets,
-                home_chain_id,
-                cid,
-                cp_chain,
-                cp_client,
-                status,
-            )
-            try:
-                cs = self.home_client.query(f"/ibc/core/client/v1/client_states/{cid}")
-                client_state = cs.get('client_state', {}) or {}
-                tp_str = client_state.get('trusting_period', '') or ''
-                tp = parse_duration(tp_str)
-                cp_chain = client_state.get('chain_id', '') or cp_chain
-                CLIENT_TRUSTING_PERIOD.labels(
-                    client_id=cid,
-                    chain_id=home_chain_id,
-                    counterparty_chain_id=cp_chain,
-                    counterparty_client_id=cp_client,
-                ).set(tp)
-
-                last_ts = self._latest_consensus_timestamp(self.home_client, cid, now)
-                if last_ts is not None:
-                    CLIENT_LAST_UPDATE.labels(
-                        client_id=cid,
-                        chain_id=home_chain_id,
-                        counterparty_chain_id=cp_chain,
-                        counterparty_client_id=cp_client,
-                    ).set(last_ts)
-            except Exception as e:
-                self._inc_error(home_chain_id, "client_state")
-                logger.warning("Home client metrics failed for %s: %s", cid, e)
-
-        # -------- client state metrics (counterparties) --------
-        # Build a set of cp-clients per cp-chain from what we learned on the home chain
-        cp_clients_by_chain = {}
+        # Build cp-client map (needed by both client-metrics and channel-backlog phases)
+        cp_clients_by_chain: dict = {}
         for local_cid in self.scanner.clients:
             cp_chain = self.scanner.client_chain_map.get(local_cid, "")
             cp_client = self.scanner.client_counterparty_client_ids.get(local_cid, "")
             if cp_chain and cp_client:
-                cp_clients_by_chain.setdefault(cp_chain, set()).add((cp_client, local_cid))  # (cp_client, home_client)
+                cp_clients_by_chain.setdefault(cp_chain, set()).add((cp_client, local_cid))
 
-        for cp_chain, pairs in cp_clients_by_chain.items():
-            rc = self.rest_by_chain.get(cp_chain)
-            if not rc or not health_by_chain.get(cp_chain, False):
-                continue
-
-            for cp_client, home_client in pairs:
-                status = getattr(self.scanner, "cp_client_status_map", {}).get((cp_chain, cp_client))
-                if not status:
-                    try:
-                        status = self._query_client_status(
-                            rc,
-                            cp_client,
-                            self.home_chain_cfg.state_scan_timeout,
-                        )
-                    except Exception as e:
-                        self._inc_error(cp_chain, "client_status")
-                        if getattr(self.cfg, "omit_inactive_clients", False):
-                            logger.warning(
-                                "Counterparty client status failed for %s on %s: %s",
-                                cp_client,
-                                cp_chain,
-                                e,
-                            )
-                            continue
-                        status = "unknown"
-                if getattr(self.cfg, "omit_inactive_clients", False) and status not in ACTIVE_CLIENT_STATUSES:
-                    continue
-                self._record_client_status(
-                    active_client_status_labelsets,
-                    cp_chain,
-                    cp_client,
-                    home_chain_id,
-                    home_client,
-                    status,
-                )
-
-                # trusting period on the counterparty
+        # -------- client state metrics (home + counterparties in parallel) --------
+        client_tasks: list = [
+            (self._update_home_client_metrics, (cid, home_chain_id, now, active_client_status_labelsets))
+            for cid in self.scanner.clients
+        ] + [
+            (self._update_cp_client_metrics, (cp_chain, pairs, home_chain_id, now,
+                                               active_client_status_labelsets, health_by_chain))
+            for cp_chain, pairs in cp_clients_by_chain.items()
+        ]
+        n_client_workers = min(getattr(self.cfg, "max_workers", 16), max(len(client_tasks), 1))
+        with ThreadPoolExecutor(max_workers=n_client_workers) as executor:
+            client_futures = [executor.submit(fn, *args) for fn, args in client_tasks]
+            for future in as_completed(client_futures):
                 try:
-                    cs_cp = rc.query(f"/ibc/core/client/v1/client_states/{cp_client}")
-                    cp_state = cs_cp.get("client_state", {}) or {}
-                    tp_str_cp = cp_state.get("trusting_period", "") or ""
-                    tp_cp = parse_duration(tp_str_cp)
-                    CLIENT_TRUSTING_PERIOD.labels(
-                        client_id=cp_client,
-                        chain_id=cp_chain,
-                        counterparty_chain_id=self.home_chain_cfg.chain_id,
-                        counterparty_client_id=home_client,
-                    ).set(tp_cp)
-                except Exception as e:
-                    self._inc_error(cp_chain, "client_state")
-                    logger.debug("cp client_states failed for %s on %s: %s", cp_client, cp_chain, e)
-                    continue
+                    future.result()
+                except Exception:
+                    logger.exception("Unexpected error in client metrics task")
 
-                # last update on the counterparty
-                try:
-                    last_ts_cp = self._latest_consensus_timestamp(rc, cp_client, now)
-                    if last_ts_cp is not None:
-                        CLIENT_LAST_UPDATE.labels(
-                            client_id=cp_client,
-                            chain_id=cp_chain,
-                            counterparty_chain_id=home_chain_id,
-                            counterparty_client_id=home_client,
-                        ).set(last_ts_cp)
-                except Exception as e:
-                    self._inc_error(cp_chain, "client_state")
-                    logger.debug("cp consensus_states failed for %s on %s: %s", cp_client, cp_chain, e)
-
-        # -------- backlog metrics per channel (home) --------
-        for conn, port, channel, cp_port, cp_channel, cp_chain in self.scanner.channels:
-            key_home = (home_chain_id, conn, port, channel)
-            label_values = self._metric_labels_tuple(
-                home_chain_id,
-                conn,
-                port,
-                channel,
-                cp_chain,
-                cp_port,
-                cp_channel,
-            )
-            self._record_channel_state(
-                active_channel_state_labelsets,
-                label_values,
-                getattr(self.scanner, "channel_state_map", {}).get(key_home, "unknown"),
-            )
-
-            try:
-                sp_items = self._query_all_list(
-                    self.home_client,
-                    f"/ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments",
-                    "commitments",
-                    timeout=self.home_chain_cfg.state_scan_timeout,
+        # -------- backlog metrics (home + counterparty channels in parallel) --------
+        n_channels = len(self.scanner.channels) + len(self.scanner.cp_channels)
+        n_channel_workers = min(getattr(self.cfg, "max_workers", 16), max(n_channels, 1))
+        with ThreadPoolExecutor(max_workers=n_channel_workers) as executor:
+            channel_futures = [
+                executor.submit(
+                    self._process_home_channel_backlog,
+                    ch, home_chain_id, now, health_by_chain,
+                    active_labelsets, active_channel_state_labelsets, failed_backlog_chains,
                 )
-                seqs = self._parse_sequences(sp_items, channel)
-                valid_seqs = [
-                    s for s in seqs
-                    if not self.cfg.excluded_sequences.is_excluded(channel, s, home_chain_id)
-                ]
-                self._record_send_backlog(label_values, key_home, valid_seqs, now)
-                active_labelsets.add(label_values)
-            except Exception as e:
-                failed_backlog_chains.add(home_chain_id)
-                self._inc_error(home_chain_id, "backlog")
-                logger.warning("Send backlog query failed for %s/%s on %s: %s", port, channel, home_chain_id, e)
-                continue
-
-            # ---- FAST ACK BACKLOG (home) ----
-            rc = self.rest_by_chain.get(cp_chain)
-            if not valid_seqs:
-                self._record_ack_backlog(label_values, key_home, set(), now)
-            elif rc and health_by_chain.get(cp_chain, False):
-                try:
-                    acked_on_cp = self._filtered_ack_sequences(rc, cp_port, cp_channel, valid_seqs)
-                    unreceived = self._unreceived_acks(self.home_client, port, channel, acked_on_cp)
-                    self._record_ack_backlog(label_values, key_home, unreceived, now)
-                except Exception as e:
-                    failed_backlog_chains.add(home_chain_id)
-                    self._inc_error(home_chain_id, "ack")
-                    logger.warning("Ack backlog query failed for %s/%s on %s: %s", port, channel, home_chain_id, e)
-            else:
-                failed_backlog_chains.add(home_chain_id)
-                self._inc_error(home_chain_id, "ack")
-                logger.warning(
-                    "Ack backlog skipped for %s/%s on %s: counterparty chain %s is unavailable",
-                    port,
-                    channel,
-                    home_chain_id,
-                    cp_chain,
+                for ch in self.scanner.channels
+            ] + [
+                executor.submit(
+                    self._process_cp_channel_backlog,
+                    ch, now, health_by_chain,
+                    active_labelsets, active_channel_state_labelsets, failed_backlog_chains,
                 )
-
-            pending = self.pending_packets.get(key_home, {})
-            apending = self.pending_acks.get(key_home, {})
-            oldest_seq, oldest_ts, oldest_age = self._pending_summary(pending, now)
-            aoldest_seq, aoldest_ts, aoldest_age = self._pending_summary(apending, now)
-            logger.info(
-                "[%s %s/%s] backlog=%d oldest=%d age=%ds ack_backlog=%d ack_oldest=%d ack_age=%ds",
-                home_chain_id,
-                port,
-                channel,
-                len(pending),
-                oldest_seq,
-                oldest_age,
-                len(apending),
-                aoldest_seq,
-                aoldest_age,
-            )
-
-        # -------- backlog metrics per channel (counterparties) --------
-        # tuples: (cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id)
-        for (cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id) in self.scanner.cp_channels:
-            rc = self.rest_by_chain.get(cp_chain)
-            label_values = self._metric_labels_tuple(
-                cp_chain,
-                cp_conn,
-                port,
-                channel,
-                home_chain_id,
-                cp_port,
-                cp_channel,
-            )
-            self._record_channel_state(
-                active_channel_state_labelsets,
-                label_values,
-                getattr(self.scanner, "cp_channel_state_map", {}).get((cp_chain, cp_conn, port, channel), "unknown"),
-            )
-            if not rc or not health_by_chain.get(cp_chain, False):
-                failed_backlog_chains.add(cp_chain)
-                continue
-
-            key_cp = (cp_chain, cp_conn, port, channel)
-
-            try:
-                sp_items = self._query_all_list(
-                    rc,
-                    f"/ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments",
-                    "commitments",
-                    timeout=self.home_chain_cfg.state_scan_timeout,
-                )
-                seqs = self._parse_sequences(sp_items, channel)
-                valid_seqs = [
-                    s for s in seqs
-                    if not self.cfg.excluded_sequences.is_excluded(channel, s, cp_chain)
-                ]
-                self._record_send_backlog(label_values, key_cp, valid_seqs, now)
-                active_labelsets.add(label_values)
-            except Exception as e:
-                failed_backlog_chains.add(cp_chain)
-                self._inc_error(cp_chain, "backlog")
-                logger.warning("Send backlog query failed for %s/%s on %s: %s", port, channel, cp_chain, e)
-                continue
-
-            # ---- FAST ACK BACKLOG (counterparty side) ----
-            if not valid_seqs:
-                self._record_ack_backlog(label_values, key_cp, set(), now)
-            else:
+                for ch in self.scanner.cp_channels
+            ]
+            for future in as_completed(channel_futures):
                 try:
-                    acked_on_home = self._filtered_ack_sequences(
-                        self.home_client, cp_port, cp_channel, valid_seqs
-                    )
-                    unreceived_cp = self._unreceived_acks(
-                        rc, port, channel, acked_on_home
-                    )
-                    self._record_ack_backlog(label_values, key_cp, unreceived_cp, now)
-                except Exception as e:
-                    failed_backlog_chains.add(cp_chain)
-                    self._inc_error(cp_chain, "ack")
-                    logger.warning("Ack backlog query failed for %s/%s on %s: %s", port, channel, cp_chain, e)
-
-            pending = self.pending_packets.get(key_cp, {})
-            apending = self.pending_acks.get(key_cp, {})
-            oldest_seq, oldest_ts, oldest_age = self._pending_summary(pending, now)
-            aoldest_seq, aoldest_ts, aoldest_age = self._pending_summary(apending, now)
-            logger.info(
-                "[%s %s/%s] backlog=%d oldest=%d age=%ds ack_backlog=%d ack_oldest=%d ack_age=%ds",
-                cp_chain,
-                port,
-                channel,
-                len(pending),
-                oldest_seq,
-                oldest_age,
-                len(apending),
-                aoldest_seq,
-                aoldest_age,
-            )
+                    future.result()
+                except Exception:
+                    logger.exception("Unexpected error in channel backlog task")
 
         if not failed_backlog_chains:
             self._remove_stale_backlog_metrics(active_labelsets)

@@ -211,6 +211,14 @@ class Config:
             exporter.get('max_workers', 16),
             'exporter.max_workers',
         )
+        self.unhealthy_endpoint_ttl = self._positive_int(
+            exporter.get('unhealthy_endpoint_ttl_seconds', 300),
+            'exporter.unhealthy_endpoint_ttl_seconds',
+        )
+        self.chain_registry_refresh_interval = self._positive_int(
+            exporter.get('chain_registry_refresh_interval_seconds', 3600),
+            'exporter.chain_registry_refresh_interval_seconds',
+        )
 
     @staticmethod
     def _required_str(data: Dict[str, Any], key: str) -> str:

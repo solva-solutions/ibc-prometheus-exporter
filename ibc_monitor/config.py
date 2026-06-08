@@ -207,6 +207,10 @@ class Config:
         )
         self.omit_closed_channels = omit_closed_channels
         self.omit_inactive_clients = omit_inactive_clients
+        self.max_workers = self._positive_int(
+            exporter.get('max_workers', 16),
+            'exporter.max_workers',
+        )
 
     @staticmethod
     def _required_str(data: Dict[str, Any], key: str) -> str:

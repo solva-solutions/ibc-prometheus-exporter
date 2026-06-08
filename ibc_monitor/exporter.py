@@ -125,6 +125,8 @@ class IBCExporter:
             self.home_chain_cfg.name,
             fallback_endpoints=self.home_chain_cfg.rests[1:],
             enable_chain_registry_fallbacks=self.cfg.enable_chain_registry_fallbacks,
+            unhealthy_ttl=float(getattr(self.cfg, "unhealthy_endpoint_ttl", 300)),
+            registry_refresh_interval=float(getattr(self.cfg, "chain_registry_refresh_interval", 3600)),
         )
 
         # Build REST clients for counterparties (one per chain)
@@ -143,6 +145,8 @@ class IBCExporter:
                 c.name,
                 fallback_endpoints=c.rests[1:],
                 enable_chain_registry_fallbacks=self.cfg.enable_chain_registry_fallbacks,
+                unhealthy_ttl=float(getattr(self.cfg, "unhealthy_endpoint_ttl", 300)),
+                registry_refresh_interval=float(getattr(self.cfg, "chain_registry_refresh_interval", 3600)),
             )
 
         # Single scanner rooted at the *home* chain; scanner itself will explicitly query CPs.

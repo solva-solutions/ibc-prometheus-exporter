@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import List, Optional, Set
+import time
+from typing import Dict, List, Optional
 
 import requests
 
@@ -34,6 +35,16 @@ class RESTClient:
     to additional endpoints defined in the Cosmos chain-registry if the primary
     becomes unavailable.  Health checks are performed against the gRPC-gateway
     ``node_info`` endpoint which exposes the chain ID of the node.
+
+    Unhealthy endpoints are suppressed for ``unhealthy_ttl`` seconds, after
+    which they are automatically retried.  If every known endpoint is marked
+    unhealthy before the TTL expires (total-outage case), all entries are
+    cleared so that the next ``health()`` call probes them all again.
+
+    When ``enable_chain_registry_fallbacks`` is True the chain-registry list is
+    re-fetched every ``registry_refresh_interval`` seconds so that newly-added
+    public endpoints are discovered without a process restart.  Existing
+    endpoints are never removed from the list; only new ones are appended.
     """
 
     def __init__(
@@ -43,6 +54,8 @@ class RESTClient:
         chain_name: str,
         fallback_endpoints: Optional[List[str]] = None,
         enable_chain_registry_fallbacks: bool = False,
+        unhealthy_ttl: float = 300.0,
+        registry_refresh_interval: float = 3600.0,
     ):
         self.primary = (primary_endpoint or "").strip().rstrip("/")
         self.expected_chain_id = expected_chain_id
@@ -56,47 +69,105 @@ class RESTClient:
             raise ValueError(f"No REST endpoints configured for chain {expected_chain_id}")
         self.endpoint = self.primary or (self.fallbacks[0] if self.fallbacks else "")
         self.enable_chain_registry_fallbacks = enable_chain_registry_fallbacks
-        self._loaded_fallbacks = not enable_chain_registry_fallbacks
-        self.unhealthy: Set[str] = set()
+
+        # endpoint -> monotonic timestamp when it was marked unhealthy
+        self.unhealthy: Dict[str, float] = {}
+        self._unhealthy_ttl = unhealthy_ttl
+
         self._lock = threading.Lock()
 
+        # Chain-registry refresh state
+        self._loaded_fallbacks = not enable_chain_registry_fallbacks
+        self._fallbacks_last_loaded: float = 0.0
+        self._registry_refresh_interval = registry_refresh_interval
+        # Prevents concurrent registry fetches (acquire non-blocking; others skip)
+        self._fallbacks_lock = threading.Lock()
+
+    # ---- chain-registry ----
+
     def _load_fallbacks(self) -> None:
-        """Load REST fallbacks from the Cosmos chain-registry."""
+        """Load (or refresh) REST fallbacks from the Cosmos chain-registry.
+
+        Only one thread performs the HTTP fetch at a time.  If the lock is
+        already held (another thread is refreshing) this call returns
+        immediately without blocking.
+        """
         if not self.enable_chain_registry_fallbacks:
             self._loaded_fallbacks = True
             return
+
+        if not self._fallbacks_lock.acquire(blocking=False):
+            return  # another thread is already refreshing
+
         try:
-            url = (
-                "https://raw.githubusercontent.com/cosmos/chain-registry/master/"
-                f"{self.chain_name}/chain.json"
-            )
-            resp = requests.get(url, timeout=3)
-            resp.raise_for_status()
-            data = resp.json()
-            for api in data.get("apis", {}).get("rest", []):
-                addr = api.get("address", "").strip().rstrip("/")
-                if addr and addr != self.primary and addr not in self.fallbacks:
-                    self.fallbacks.append(addr)
-            logger.info(
-                "Loaded %d fallback REST endpoint(s) for chain %s",
-                len(self.fallbacks),
-                self.chain_name,
-            )
-        except Exception as e:  # pragma: no cover - network failures
-            logger.warning("Failed to load fallback REST endpoints for %s: %s", self.chain_name, e)
+            now = time.monotonic()
+            # Skip if the list was loaded recently (but always run on first load)
+            if self._loaded_fallbacks and now - self._fallbacks_last_loaded < self._registry_refresh_interval:
+                return
+            try:
+                url = (
+                    "https://raw.githubusercontent.com/cosmos/chain-registry/master/"
+                    f"{self.chain_name}/chain.json"
+                )
+                resp = requests.get(url, timeout=3)
+                resp.raise_for_status()
+                data = resp.json()
+                added = 0
+                for api in data.get("apis", {}).get("rest", []):
+                    addr = api.get("address", "").strip().rstrip("/")
+                    if addr and addr != self.primary and addr not in self.fallbacks:
+                        self.fallbacks.append(addr)
+                        added += 1
+                if added:
+                    logger.info(
+                        "Discovered %d new fallback REST endpoint(s) for chain %s (total: %d)",
+                        added,
+                        self.chain_name,
+                        len(self.fallbacks),
+                    )
+                else:
+                    logger.debug(
+                        "Chain-registry refresh for %s: no new endpoints", self.chain_name
+                    )
+            except Exception as e:  # pragma: no cover - network failures
+                logger.warning(
+                    "Failed to load fallback REST endpoints for %s: %s", self.chain_name, e
+                )
+            finally:
+                self._fallbacks_last_loaded = now
+                self._loaded_fallbacks = True
         finally:
-            self._loaded_fallbacks = True
+            self._fallbacks_lock.release()
+
+    def _registry_refresh_due(self) -> bool:
+        return (
+            self.enable_chain_registry_fallbacks
+            and time.monotonic() - self._fallbacks_last_loaded >= self._registry_refresh_interval
+        )
+
+    # ---- endpoint management ----
 
     def health(self) -> bool:
         """Check the health of the current endpoint and switch if necessary."""
-        if not self._loaded_fallbacks:
+        if not self._loaded_fallbacks or self._registry_refresh_due():
             self._load_fallbacks()
+
         endpoints = self.endpoints()
         if not endpoints:
             return False
+
+        now = time.monotonic()
         with self._lock:
+            # Evict TTL-expired entries so individual endpoints get a second chance
+            expired = [ep for ep, ts in self.unhealthy.items() if now - ts >= self._unhealthy_ttl]
+            for ep in expired:
+                del self.unhealthy[ep]
+                logger.debug("Endpoint %s unhealthy TTL expired; retrying", ep)
+
+            # Total-outage recovery: if every endpoint is still unhealthy, clear all and retry
             if len(self.unhealthy) >= len(endpoints):
                 self.unhealthy.clear()
+
         for ep in endpoints:
             with self._lock:
                 skip = ep in self.unhealthy
@@ -115,7 +186,7 @@ class RESTClient:
                         self.expected_chain_id,
                     )
                     with self._lock:
-                        self.unhealthy.add(ep)
+                        self.unhealthy[ep] = time.monotonic()
                     continue
                 with self._lock:
                     if ep != self.endpoint:
@@ -125,13 +196,13 @@ class RESTClient:
             except Exception as e:  # pragma: no cover - network failures
                 logger.warning("REST health check failed for %s: %s", ep, e)
                 with self._lock:
-                    self.unhealthy.add(ep)
+                    self.unhealthy[ep] = time.monotonic()
                 continue
         return False
 
     def endpoints(self) -> List[str]:
         """Return all known endpoints, preserving primary-first ordering."""
-        if not self._loaded_fallbacks:
+        if not self._loaded_fallbacks or self._registry_refresh_due():
             self._load_fallbacks()
         endpoints = []
         for endpoint in [self.primary] + self.fallbacks:
@@ -163,7 +234,7 @@ class RESTClient:
                 last_error = e
                 logger.warning("REST query failed for %s: %s", url, e)
                 with self._lock:
-                    self.unhealthy.add(self.endpoint)
+                    self.unhealthy[self.endpoint] = time.monotonic()
                 if not self.health():
                     break
                 endpoints = self.endpoints()

@@ -219,6 +219,10 @@ class Config:
             exporter.get('chain_registry_refresh_interval_seconds', 3600),
             'exporter.chain_registry_refresh_interval_seconds',
         )
+        self.backlog_query_timeout = self._positive_int(
+            exporter.get('backlog_query_timeout_seconds', 30),
+            'exporter.backlog_query_timeout_seconds',
+        )
 
     @staticmethod
     def _required_str(data: Dict[str, Any], key: str) -> str:

@@ -589,12 +589,13 @@ class IBCExporter:
             label_values,
             getattr(self.scanner, "channel_state_map", {}).get(key_home, "unknown"),
         )
+        backlog_timeout = getattr(self.cfg, "backlog_query_timeout", 30)
         try:
             sp_items = self._query_all_list(
                 self.home_client,
                 f"/ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments",
                 "commitments",
-                timeout=self.home_chain_cfg.state_scan_timeout,
+                timeout=backlog_timeout,
             )
             seqs = self._parse_sequences(sp_items, channel)
             valid_seqs = [
@@ -666,13 +667,14 @@ class IBCExporter:
             failed_backlog_chains.add(cp_chain)
             return
 
+        backlog_timeout = getattr(self.cfg, "backlog_query_timeout", 30)
         key_cp = (cp_chain, cp_conn, port, channel)
         try:
             sp_items = self._query_all_list(
                 rc,
                 f"/ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments",
                 "commitments",
-                timeout=self.home_chain_cfg.state_scan_timeout,
+                timeout=backlog_timeout,
             )
             seqs = self._parse_sequences(sp_items, channel)
             valid_seqs = [

@@ -132,10 +132,14 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [[chains]]
-name = "terra"
+name = "terra2"
 chain_id = "phoenix-1"
 rpcs = [""]
-rests = [""]
+rests = [
+    "https://terra-api.polkachu.com",
+    "https://rest.cosmos.directory/terra2",
+    "https://terra-lcd.publicnode.com",
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-330",   # → kava_2222-10 (channel-216)
@@ -235,13 +239,14 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [[chains]]
-name = "secret"
+name = "secretnetwork"
 chain_id = "secret-4"
 rpcs = [
-    "http://37.252.186.102:26657"
+    "https://rpc.lavenderfive.com:443/secretnetwork",
 ]
 rests = [
-    "http://37.252.186.102:1317"
+    "https://secretnetwork-api.lavenderfive.com",
+    "https://rest.lavenderfive.com:443/secretnetwork",
 ]
 home_chain = false
 whitelist_clients = [

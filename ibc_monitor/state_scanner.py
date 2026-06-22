@@ -388,68 +388,87 @@ class StateScanner:
                     logger.debug("No REST client configured for counterparty chain %s; skipping", cp_chain)
                     continue
 
-                cp_conn_ids = []
-                for cp_conn, cp_client_id in cp_conn_clients.items():
-                    if cp_client_id:
-                        status = self._client_status_on(
-                            rc,
-                            cp_client_id,
-                            self.cfg.state_scan_timeout,
-                            required=self._omit_inactive_clients(),
-                        )
-                        cp_client_status_map[(cp_chain, cp_client_id)] = status
-                        if self._omit_inactive_clients() and status not in ACTIVE_CLIENT_STATUSES:
-                            logger.debug(
-                                "Skipping counterparty connection %s on %s for inactive client %s (%s)",
-                                cp_conn,
-                                cp_chain,
+                try:
+                    cp_conn_ids = []
+                    for cp_conn, cp_client_id in cp_conn_clients.items():
+                        if cp_client_id:
+                            status = self._client_status_on(
+                                rc,
                                 cp_client_id,
-                                status,
+                                self.cfg.state_scan_timeout,
+                                required=self._omit_inactive_clients(),
                             )
-                            continue
-                    cp_conn_ids.append(cp_conn)
+                            cp_client_status_map[(cp_chain, cp_client_id)] = status
+                            if self._omit_inactive_clients() and status not in ACTIVE_CLIENT_STATUSES:
+                                logger.debug(
+                                    "Skipping counterparty connection %s on %s for inactive client %s (%s)",
+                                    cp_conn,
+                                    cp_chain,
+                                    cp_client_id,
+                                    status,
+                                )
+                                continue
+                        cp_conn_ids.append(cp_conn)
 
-                cp_conn_ids_filtered = self._filter_list(
-                    cp_conn_ids,
-                    self.cfg.whitelist_connections,
-                    self.cfg.blacklist_connections,
-                )
-                cp_connections[cp_chain] = cp_conn_ids_filtered
-
-                for cp_conn in cp_conn_ids_filtered:
-                    chs = self._query_all_on(
-                        rc,
-                        f"/ibc/core/channel/v1/connections/{cp_conn}/channels",
-                        "channels",
-                        timeout=self.cfg.state_scan_timeout,
-                        ignore_404=True,
+                    cp_conn_ids_filtered = self._filter_list(
+                        cp_conn_ids,
+                        self.cfg.whitelist_connections,
+                        self.cfg.blacklist_connections,
                     )
-                    if not chs:
-                        logger.debug("No channels on %s for counterparty %s", cp_conn, cp_chain)
-                        continue
+                    cp_connections[cp_chain] = cp_conn_ids_filtered
 
-                    for ch in chs:
-                        port, channel = ch.get("port_id"), ch.get("channel_id")
-                        if not port or not channel:
+                    for cp_conn in cp_conn_ids_filtered:
+                        chs = self._query_all_on(
+                            rc,
+                            f"/ibc/core/channel/v1/connections/{cp_conn}/channels",
+                            "channels",
+                            timeout=self.cfg.state_scan_timeout,
+                            ignore_404=True,
+                        )
+                        if not chs:
+                            logger.debug("No channels on %s for counterparty %s", cp_conn, cp_chain)
                             continue
-                        state = self._channel_state(ch)
-                        if self._omit_closed_channels() and state in CLOSED_CHANNEL_STATES:
-                            logger.debug("Skipping closed channel %s/%s on %s", port, channel, cp_chain)
-                            continue
-                        cp = ch.get("counterparty") or {}
-                        cp_port = cp.get("port_id", "")
-                        cp_channel = cp.get("channel_id", "")
-                        cp_whitelist, cp_blacklist = self._cp_channel_filters(cp_chain)
-                        if not self._match_any(f"{port}/{channel}", cp_whitelist, cp_blacklist):
-                            logger.debug(
-                                "Skipping blacklisted counterparty channel %s/%s on %s",
-                                port,
-                                channel,
-                                cp_chain,
-                            )
-                            continue
-                        cp_channels.append((cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id))
-                        cp_channel_state_map[(cp_chain, cp_conn, port, channel)] = state
+
+                        for ch in chs:
+                            port, channel = ch.get("port_id"), ch.get("channel_id")
+                            if not port or not channel:
+                                continue
+                            state = self._channel_state(ch)
+                            if self._omit_closed_channels() and state in CLOSED_CHANNEL_STATES:
+                                logger.debug("Skipping closed channel %s/%s on %s", port, channel, cp_chain)
+                                continue
+                            cp = ch.get("counterparty") or {}
+                            cp_port = cp.get("port_id", "")
+                            cp_channel = cp.get("channel_id", "")
+                            cp_whitelist, cp_blacklist = self._cp_channel_filters(cp_chain)
+                            if not self._match_any(f"{port}/{channel}", cp_whitelist, cp_blacklist):
+                                logger.debug(
+                                    "Skipping blacklisted counterparty channel %s/%s on %s",
+                                    port,
+                                    channel,
+                                    cp_chain,
+                                )
+                                continue
+                            cp_channels.append((cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id))
+                            cp_channel_state_map[(cp_chain, cp_conn, port, channel)] = state
+                except Exception:
+                    logger.warning(
+                        "State scan failed for counterparty %s; keeping previous state for this chain",
+                        cp_chain,
+                        exc_info=True,
+                    )
+                    # Preserve previous cp state for this chain so the rest of the scan is unaffected
+                    if cp_chain in self.cp_connections:
+                        cp_connections[cp_chain] = self.cp_connections[cp_chain]
+                    for k, v in self.cp_client_status_map.items():
+                        if k[0] == cp_chain:
+                            cp_client_status_map.setdefault(k, v)
+                    for prev_ch in self.cp_channels:
+                        if prev_ch[0] == cp_chain:
+                            cp_channels.append(prev_ch)
+                    for k, v in self.cp_channel_state_map.items():
+                        if k[0] == cp_chain:
+                            cp_channel_state_map.setdefault(k, v)
         except Exception:
             logger.exception("State scan failed for home chain %s; keeping previous state", home_chain_id)
             return False

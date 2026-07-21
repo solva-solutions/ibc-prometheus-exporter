@@ -42,7 +42,7 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [chains.excluded_sequences]
-channel-8 = ["633997", "634996"]
+channel-8 = ["633997", "634996", "639836"]
 channel-215 = ["22-46"]
 channel-288 = ["1-3"]
 channel-301 = ["18"]

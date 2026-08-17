@@ -94,7 +94,7 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [chains.excluded_sequences]
-channel-122 = ["690940-757191", "760058", "762421"]
+channel-122 = ["690940-757191", "760058", "762421", "769208"]
 channel-77133 = ["18"]  # stuck acks from injective channel-301
 
 [[chains]]

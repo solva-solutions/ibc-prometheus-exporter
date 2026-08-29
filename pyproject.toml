@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-prometheus-client = ">=0.16,<0.26"
+prometheus-client = ">=0.16,<0.27"
 toml = "^0.10.2"
 requests = "^2.28.0"
 

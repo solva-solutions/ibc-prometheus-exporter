@@ -25,6 +25,7 @@ whitelist_clients = [
     "07-tendermint-78",   # → kava_2222-10
     "07-tendermint-93",   # → core-1
     "07-tendermint-101",  # → neutron-1
+    "07-tendermint-126",  # → injective-1
 ]
 blacklist_clients = []
 whitelist_connections = []
@@ -159,6 +160,23 @@ rests = [""]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-147",   # → agoric-3
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "injective"
+chain_id = "injective-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = [
+    "07-tendermint-328",   # → agoric-3
 ]
 blacklist_clients = []
 whitelist_connections = []

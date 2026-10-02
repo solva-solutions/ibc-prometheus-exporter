@@ -1,0 +1,290 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# IBC Prometheus Exporter config — Stride SA
+# Home chain  : stride-1
+# Counterparties (from hermes-config-stride.toml):
+#   cosmoshub-4, osmosis-1, injective-1, juno-1, secret-4, phoenix-1,
+#   neutron-1, agoric-3, dydx-mainnet-1, celestia, ssc-1, laozi-mainnet
+#
+# Hermes extra non-stride paths (osmosis-band, osmosis-neutron) are omitted:
+# this exporter scans from stride as home.
+#
+# Expired canonical clients (queried 2026-10-02; recovery still required):
+#   stride-1       07-tendermint-129  Expired   tracks agoric-3
+#   agoric-3       07-tendermint-74   Expired   tracks stride-1
+#   laozi-mainnet  07-tendermint-169  Expired   tracks stride-1
+# stride-1 07-tendermint-146 (tracks laozi-mainnet) is Active.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ════════════════════════════════════════════════════════════
+# HOME CHAIN
+# ════════════════════════════════════════════════════════════
+
+[[chains]]
+name = "stride"
+chain_id = "stride-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/stride/rpc"
+]
+rests = [
+    "https://stride-api.polkachu.com",
+    "https://rest.lavenderfive.com:443/stride",
+]
+home_chain = true
+# Canonical clients on stride-1 for hermes-relayed counterparties
+whitelist_clients = [
+    "07-tendermint-0",    # → cosmoshub-4     (channel-0)
+    "07-tendermint-1",    # → osmosis-1       (channel-5)
+    "07-tendermint-2",    # → injective-1     (channel-6)
+    "07-tendermint-31",   # → juno-1          (channel-24)
+    "07-tendermint-37",   # → secret-4        (channel-40)
+    "07-tendermint-51",   # → phoenix-1       (channel-52)
+    "07-tendermint-125",  # → neutron-1       (channel-123)
+    "07-tendermint-129",  # → agoric-3        (channel-148) Expired
+    "07-tendermint-133",  # → dydx-mainnet-1  (channel-160)
+    "07-tendermint-137",  # → celestia        (channel-162, channel-163)
+    "07-tendermint-142",  # → ssc-1           (channel-213)
+    "07-tendermint-146",  # → laozi-mainnet   (channel-258)
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+# ════════════════════════════════════════════════════════════
+# COUNTERPARTIES
+# ════════════════════════════════════════════════════════════
+
+[[chains]]
+name = "cosmoshub"
+chain_id = "cosmoshub-4"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/cosmoshub/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on cosmoshub-4 tracking stride-1: 07-tendermint-913
+whitelist_clients = ["07-tendermint-913"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "osmosis"
+chain_id = "osmosis-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/osmosis/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on osmosis-1 tracking stride-1: 07-tendermint-2119
+whitelist_clients = ["07-tendermint-2119"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "injective"
+chain_id = "injective-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/injective/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on injective-1 tracking stride-1: 07-tendermint-131
+whitelist_clients = ["07-tendermint-131"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "juno"
+chain_id = "juno-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/juno/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on juno-1 tracking stride-1: 07-tendermint-263
+whitelist_clients = ["07-tendermint-263"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "terra2"
+chain_id = "phoenix-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/terra2/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on phoenix-1 tracking stride-1: 07-tendermint-87
+whitelist_clients = ["07-tendermint-87"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "bandchain"
+chain_id = "laozi-mainnet"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/bandchain/rpc"
+]
+rests = [""]
+home_chain = false
+# Expired client on laozi-mainnet tracking stride-1: 07-tendermint-169
+whitelist_clients = ["07-tendermint-169"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "saga"
+chain_id = "ssc-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/saga/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on ssc-1 tracking stride-1: 07-tendermint-0
+whitelist_clients = ["07-tendermint-0"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "dydx"
+chain_id = "dydx-mainnet-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/dydx/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on dydx-mainnet-1 tracking stride-1: 07-tendermint-1
+whitelist_clients = ["07-tendermint-1"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "celestia"
+chain_id = "celestia"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/celestia/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on celestia tracking stride-1: 07-tendermint-0
+whitelist_clients = ["07-tendermint-0"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "agoric"
+chain_id = "agoric-3"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/agoric/rpc"
+]
+rests = [""]
+home_chain = false
+# Expired client on agoric-3 tracking stride-1: 07-tendermint-74
+whitelist_clients = ["07-tendermint-74"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "neutron"
+chain_id = "neutron-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/neutron/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on neutron-1 tracking stride-1: 07-tendermint-18
+whitelist_clients = ["07-tendermint-18"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "secretnetwork"
+chain_id = "secret-4"
+rpcs = [
+    "https://shade-open-rpc.lavenderfive.com:443"
+]
+rests = [
+    "https://secretnetwork-api.lavenderfive.com",
+    "https://rest.lavenderfive.com:443/secretnetwork",
+]
+home_chain = false
+# Active client on secret-4 tracking stride-1: 07-tendermint-75
+whitelist_clients = ["07-tendermint-75"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+# ════════════════════════════════════════════════════════════
+# General exporter settings
+# ════════════════════════════════════════════════════════════
+
+[exporter]
+address = "0.0.0.0"
+port = 8115
+update_interval_seconds = 30
+log_level = "INFO"
+enable_chain_registry_fallbacks = true
+omit_closed_channels = true
+omit_inactive_clients = false

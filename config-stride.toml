@@ -7,12 +7,6 @@
 #
 # Hermes extra non-stride paths (osmosis-band, osmosis-neutron) are omitted:
 # this exporter scans from stride as home.
-#
-# Expired canonical clients (queried 2026-10-02; recovery still required):
-#   stride-1       07-tendermint-129  Expired   tracks agoric-3
-#   agoric-3       07-tendermint-74   Expired   tracks stride-1
-#   laozi-mainnet  07-tendermint-169  Expired   tracks stride-1
-# stride-1 07-tendermint-146 (tracks laozi-mainnet) is Active.
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ════════════════════════════════════════════════════════════
@@ -39,15 +33,17 @@ whitelist_clients = [
     "07-tendermint-37",   # → secret-4        (channel-40)
     "07-tendermint-51",   # → phoenix-1       (channel-52)
     "07-tendermint-125",  # → neutron-1       (channel-123)
-    "07-tendermint-129",  # → agoric-3        (channel-148) Expired
+    "07-tendermint-129",  # → agoric-3        (channel-148)
     "07-tendermint-133",  # → dydx-mainnet-1  (channel-160)
-    "07-tendermint-137",  # → celestia        (channel-162, channel-163)
+    "07-tendermint-137",  # → celestia        (channel-162, channel-163; not channel-161)
     "07-tendermint-142",  # → ssc-1           (channel-213)
     "07-tendermint-146",  # → laozi-mainnet   (channel-258)
 ]
 blacklist_clients = []
 whitelist_connections = []
-blacklist_connections = []
+# Extra celestia path on the same home client (07-tendermint-137):
+# connection-124 / channel-161 ↔ celestia 07-tendermint-16 / connection-3
+blacklist_connections = ["connection-124"]
 whitelist_channels = []
 blacklist_channels = []
 state_refresh_interval = 1200
@@ -155,7 +151,7 @@ rpcs = [
 ]
 rests = [""]
 home_chain = false
-# Expired client on laozi-mainnet tracking stride-1: 07-tendermint-169
+# Active client on laozi-mainnet tracking stride-1: 07-tendermint-169
 whitelist_clients = ["07-tendermint-169"]
 blacklist_clients = []
 whitelist_connections = []
@@ -227,7 +223,7 @@ rpcs = [
 ]
 rests = [""]
 home_chain = false
-# Expired client on agoric-3 tracking stride-1: 07-tendermint-74
+# Active client on agoric-3 tracking stride-1: 07-tendermint-74
 whitelist_clients = ["07-tendermint-74"]
 blacklist_clients = []
 whitelist_connections = []

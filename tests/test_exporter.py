@@ -57,7 +57,7 @@ class FakeScanner:
         # One path: local (connection-1, port1/ch1) <-> counterparty (port2/ch2) on chain-2
         self.channels = [("connection-1", "port1", "ch1", "port2", "ch2", "chain-2")]
         self.channel_state_map = {("chain-1", "connection-1", "port1", "ch1"): "open"}
-        self.client_counterparty_client_ids = {}
+        self.client_counterparty_client_ids = {}  # home client -> list of cp clients
         # New exporter iterates this for CP-side metrics; keep empty for this test
         self.cp_channels = []
         self.cp_client_status_map = {}
@@ -144,6 +144,40 @@ def test_excluded_sequences_filtered():
         counterparty_client_id="",
         status="active",
     )._value.get() == 1
+
+
+def test_home_client_metrics_omit_counterparty_client_id():
+    metrics.CLIENT_STATUS.clear()
+    metrics.CLIENT_TRUSTING_PERIOD.clear()
+    metrics.CLIENT_LAST_UPDATE.clear()
+    metrics.CHANNEL_STATE.clear()
+    metrics.BACKLOG_SIZE.clear()
+    metrics.BACKLOG_OLDEST_SEQ.clear()
+    metrics.ACK_BACKLOG_SIZE.clear()
+    metrics.ACK_OLDEST_SEQ.clear()
+    metrics.BACKLOG_UPDATED.clear()
+
+    exporter = build_home_anchored_exporter()
+    exporter.scanner.client_counterparty_client_ids = {"client-1": ["cp-16", "cp-0"]}
+    exporter.update_metrics()
+
+    labels = dict(
+        chain_id="chain-1",
+        client_id="client-1",
+        counterparty_chain_id="chain-2",
+        counterparty_client_id="",
+    )
+    assert metrics.CLIENT_STATUS.labels(**labels, status="active")._value.get() == 1
+    assert metrics.CLIENT_TRUSTING_PERIOD.labels(**labels)._value.get() == 1.0
+    home_cp_ids = {
+        sample.labels["counterparty_client_id"]
+        for metric in (metrics.CLIENT_STATUS, metrics.CLIENT_TRUSTING_PERIOD)
+        for family in metric.collect()
+        for sample in family.samples
+        if sample.labels.get("client_id") == "client-1"
+        and sample.labels.get("chain_id") == "chain-1"
+    }
+    assert home_cp_ids == {""}
 
 
 def test_failed_commitment_query_does_not_clear_existing_backlog():

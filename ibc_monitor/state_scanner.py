@@ -73,7 +73,7 @@ class StateScanner:
         self.connections: List[str] = []
         self.client_chain_map: Dict[str, str] = {}
         self.client_status_map: Dict[str, str] = {}
-        self.client_counterparty_client_ids: Dict[str, str] = {}
+        self.client_counterparty_client_ids: Dict[str, List[str]] = {}
         self.connection_client_map: Dict[str, str] = {}
         # (connection, port, channel, counterparty_port, counterparty_channel, counterparty_chain)
         self.channels: List[Tuple[str, str, str, str, str, str]] = []
@@ -188,6 +188,12 @@ class StateScanner:
             return [], []
         return cp_cfg.whitelist_channels, cp_cfg.blacklist_channels
 
+    def _cp_connection_filters(self, cp_chain: str):
+        cp_cfg = self.cp_chain_cfgs.get(cp_chain)
+        if cp_cfg is None:
+            return [], []
+        return cp_cfg.whitelist_connections, cp_cfg.blacklist_connections
+
     def _omit_inactive_clients(self) -> bool:
         return bool(getattr(self.cfg, "omit_inactive_clients", False))
 
@@ -279,9 +285,8 @@ class StateScanner:
 
             # 2) HOME: for each relevant client -> client_connections (paginated) -> connection state
             connection_client_map: Dict[str, str] = {}
-            client_cp_client_ids: Dict[str, str] = {}
+            conn_cp_info: Dict[str, Tuple[str, str]] = {}
             all_conns: List[str] = []
-            cp_conn_per_chain: Dict[str, Dict[str, str]] = {}
 
             for cid in filtered_clients:
                 conn_ids = self._query_all(
@@ -313,15 +318,7 @@ class StateScanner:
                             raise
 
                     cp = conn_res.get("counterparty") or {}
-                    cp_client_id = cp.get("client_id", "")
-                    cp_connection_id = cp.get("connection_id", "")
-
-                    if cp_client_id and cid not in client_cp_client_ids:
-                        client_cp_client_ids[cid] = cp_client_id
-
-                    cp_chain = filtered_client_chain_map.get(cid)
-                    if cp_chain and cp_connection_id:
-                        cp_conn_per_chain.setdefault(cp_chain, {})[cp_connection_id] = cp_client_id
+                    conn_cp_info[conn] = (cp.get("connection_id", ""), cp.get("client_id", ""))
 
                 all_conns.extend(conn_ids)
 
@@ -331,6 +328,21 @@ class StateScanner:
                 self.cfg.blacklist_connections,
             )
             logger.debug("Relevant connections (home): %s", filtered_conns)
+
+            # One home client can back multiple connections, each with its own
+            # counterparty client. Record every CP client from *allowed* connections.
+            client_cp_client_ids: Dict[str, List[str]] = {}
+            cp_conn_per_chain: Dict[str, Dict[str, str]] = {}
+            for conn in filtered_conns:
+                cid = connection_client_map.get(conn, "")
+                cp_connection_id, cp_client_id = conn_cp_info.get(conn, ("", ""))
+                if cp_client_id:
+                    ids = client_cp_client_ids.setdefault(cid, [])
+                    if cp_client_id not in ids:
+                        ids.append(cp_client_id)
+                cp_chain = filtered_client_chain_map.get(cid)
+                if cp_chain and cp_connection_id:
+                    cp_conn_per_chain.setdefault(cp_chain, {})[cp_connection_id] = cp_client_id
 
             # 3) HOME: channels per relevant connection (paginated)
             chan_list: List[Tuple[str, str, str, str, str, str]] = []
@@ -410,11 +422,8 @@ class StateScanner:
                                 continue
                         cp_conn_ids.append(cp_conn)
 
-                    cp_conn_ids_filtered = self._filter_list(
-                        cp_conn_ids,
-                        self.cfg.whitelist_connections,
-                        self.cfg.blacklist_connections,
-                    )
+                    cp_wl, cp_bl = self._cp_connection_filters(cp_chain)
+                    cp_conn_ids_filtered = self._filter_list(cp_conn_ids, cp_wl, cp_bl)
                     cp_connections[cp_chain] = cp_conn_ids_filtered
 
                     for cp_conn in cp_conn_ids_filtered:

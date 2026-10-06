@@ -465,16 +465,20 @@ class IBCExporter:
         now: int,
         active_client_status_labelsets: set,
     ) -> None:
-        """Fetch and record client-state metrics for a single home-chain client."""
+        """Fetch and record client-state metrics for a single home-chain client.
+
+        Home clients track a counterparty *chain*, not a remote client. The
+        ``counterparty_client_id`` label is left empty; remote clients are
+        exported from the counterparty side.
+        """
         cp_chain = self.scanner.client_chain_map.get(cid, "")
-        cp_client = self.scanner.client_counterparty_client_ids.get(cid, "")
         status = getattr(self.scanner, "client_status_map", {}).get(cid, "unknown")
         self._record_client_status(
             active_client_status_labelsets,
             home_chain_id,
             cid,
             cp_chain,
-            cp_client,
+            "",
             status,
         )
         try:
@@ -487,7 +491,7 @@ class IBCExporter:
                 client_id=cid,
                 chain_id=home_chain_id,
                 counterparty_chain_id=cp_chain,
-                counterparty_client_id=cp_client,
+                counterparty_client_id="",
             ).set(tp)
             last_ts = self._latest_consensus_timestamp(self.home_client, cid, now)
             if last_ts is not None:
@@ -495,7 +499,7 @@ class IBCExporter:
                     client_id=cid,
                     chain_id=home_chain_id,
                     counterparty_chain_id=cp_chain,
-                    counterparty_client_id=cp_client,
+                    counterparty_client_id="",
                 ).set(last_ts)
         except Exception as e:
             self._inc_error(home_chain_id, "client_state")
@@ -765,9 +769,9 @@ class IBCExporter:
         cp_clients_by_chain: dict = {}
         for local_cid in self.scanner.clients:
             cp_chain = self.scanner.client_chain_map.get(local_cid, "")
-            cp_client = self.scanner.client_counterparty_client_ids.get(local_cid, "")
-            if cp_chain and cp_client:
-                cp_clients_by_chain.setdefault(cp_chain, set()).add((cp_client, local_cid))
+            for cp_client in self.scanner.client_counterparty_client_ids.get(local_cid, []):
+                if cp_chain and cp_client:
+                    cp_clients_by_chain.setdefault(cp_chain, set()).add((cp_client, local_cid))
 
         # -------- client state metrics (home + counterparties in parallel) --------
         client_tasks: list = [

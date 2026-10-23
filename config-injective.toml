@@ -237,6 +237,9 @@ blacklist_channels = []
 state_refresh_interval = 1200
 state_scan_timeout = 600
 
+[chains.excluded_sequences]
+channel-12 = ["160"]  # tokenwrapper rejects ack for Hub-routed unit-zig; error ack sits on injective channel-456
+
 # ════════════════════════════════════════════════════════════
 # General exporter settings
 # ════════════════════════════════════════════════════════════

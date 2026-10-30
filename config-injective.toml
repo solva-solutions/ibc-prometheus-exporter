@@ -42,7 +42,7 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [chains.excluded_sequences]
-channel-1 = ["126208"]
+channel-1 = ["126208", "131571"]  # 131571: PFM stuck on osmosis-1 channel-216 seq 111479 → Oraichain channel-13; path we don't relay
 channel-8 = ["633997", "634996", "639836", "640795", "642006", "646631"]
 channel-215 = ["22-46"]
 channel-288 = ["1-3"]

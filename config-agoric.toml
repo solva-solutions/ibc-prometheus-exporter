@@ -12,9 +12,12 @@
 [[chains]]
 name = "agoric"
 chain_id = "agoric-3"
-rpcs = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/agoric/rpc"
+]
 rests = [
-    "https://main.api.agoric.net:443"
+    "https://s1.solva.solutions/agoric/lcd",
+    "https://main.api.agoric.net:443",
 ]
 home_chain = true
 whitelist_clients = [
@@ -47,8 +50,12 @@ channel-62 = ["1-3421"]         # agoric-3 → noble-1
 [[chains]]
 name = "osmosis"
 chain_id = "osmosis-1"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/osmosis/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/osmosis/lcd"
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-2109",  # → agoric-3
@@ -67,8 +74,12 @@ channel-320 = ["114800-118396"]
 [[chains]]
 name = "cosmoshub"
 chain_id = "cosmoshub-4"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/cosmoshub/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/cosmoshub/lcd"
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-927",   # → agoric-3
@@ -84,8 +95,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "neutron"
 chain_id = "neutron-1"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/neutron/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/neutron/lcd"
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-148",   # → agoric-3
@@ -101,8 +116,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "axelar"
 chain_id = "axelar-dojo-1"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/axelar/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/axelar/lcd"
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-69",    # → agoric-3
@@ -118,8 +137,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "noble"
 chain_id = "noble-1"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/noble/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/noble/lcd"
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-32",    # → agoric-3
@@ -138,7 +161,9 @@ channel-21 = ["1-3421"]
 [[chains]]
 name = "persistence"
 chain_id = "core-1"
-rpcs = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/persistence/rpc"
+]
 rests = [""]
 home_chain = false
 whitelist_clients = [
@@ -155,7 +180,9 @@ state_scan_timeout = 600
 [[chains]]
 name = "kava"
 chain_id = "kava_2222-10"
-rpcs = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/kava/rpc"
+]
 rests = [""]
 home_chain = false
 whitelist_clients = [
@@ -172,8 +199,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "injective"
 chain_id = "injective-1"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/injective/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/injective/lcd"
+]
 home_chain = false
 whitelist_clients = [
     "07-tendermint-328",   # → agoric-3

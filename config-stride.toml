@@ -59,7 +59,9 @@ chain_id = "cosmoshub-4"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/cosmoshub/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/cosmoshub/lcd"
+]
 home_chain = false
 # Active client on cosmoshub-4 tracking stride-1: 07-tendermint-913
 whitelist_clients = ["07-tendermint-913"]
@@ -77,7 +79,9 @@ chain_id = "osmosis-1"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/osmosis/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/osmosis/lcd"
+]
 home_chain = false
 # Active client on osmosis-1 tracking stride-1: 07-tendermint-2119
 whitelist_clients = ["07-tendermint-2119"]
@@ -95,7 +99,9 @@ chain_id = "injective-1"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/injective/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/injective/lcd"
+]
 home_chain = false
 # Active client on injective-1 tracking stride-1: 07-tendermint-131
 whitelist_clients = ["07-tendermint-131"]
@@ -131,7 +137,9 @@ chain_id = "phoenix-1"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/terra2/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/terra2/lcd"
+]
 home_chain = false
 # Active client on phoenix-1 tracking stride-1: 07-tendermint-87
 whitelist_clients = ["07-tendermint-87"]
@@ -185,7 +193,9 @@ chain_id = "dydx-mainnet-1"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/dydx/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/dydx/lcd"
+]
 home_chain = false
 # Active client on dydx-mainnet-1 tracking stride-1: 07-tendermint-1
 whitelist_clients = ["07-tendermint-1"]
@@ -203,7 +213,9 @@ chain_id = "celestia"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/celestia/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/celestia/lcd"
+]
 home_chain = false
 # Active client on celestia tracking stride-1: 07-tendermint-0
 whitelist_clients = ["07-tendermint-0"]
@@ -221,7 +233,9 @@ chain_id = "agoric-3"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/agoric/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/agoric/lcd"
+]
 home_chain = false
 # Active client on agoric-3 tracking stride-1: 07-tendermint-74
 whitelist_clients = ["07-tendermint-74"]
@@ -239,7 +253,9 @@ chain_id = "neutron-1"
 rpcs = [
     "https://s1.solva.solutions:8443/solva-internal/neutron/rpc"
 ]
-rests = [""]
+rests = [
+    "https://s1.solva.solutions/neutron/lcd"
+]
 home_chain = false
 # Active client on neutron-1 tracking stride-1: 07-tendermint-18
 whitelist_clients = ["07-tendermint-18"]

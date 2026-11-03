@@ -1,11 +1,13 @@
 [[chains]]
 name = "babylon"
 chain_id = "bbn-1"
-rpcs = [ 
-    "https://rpc.babylon.network" 
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/babylon/rpc",
+    "https://rpc.babylon.network",
 ]
-rests = [ 
-    "https://lcd.babylon.network" 
+rests = [
+    "https://s1.solva.solutions/babylon/lcd",
+    "https://lcd.babylon.network",
 ]
 home_chain = true
 whitelist_clients = []
@@ -25,10 +27,12 @@ channel-7 = [ "2-6" ]
 name = "osmosis"
 chain_id = "osmosis-1"
 rpcs = [
-    "https://rpc.osmosis.zone"
+    "https://s1.solva.solutions:8443/solva-internal/osmosis/rpc",
+    "https://rpc.osmosis.zone",
 ]
 rests = [
-    "https://lcd.osmosis.zone"
+    "https://s1.solva.solutions/osmosis/lcd",
+    "https://lcd.osmosis.zone",
 ]
 home_chain = false
 whitelist_clients = []
@@ -43,8 +47,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "noble"
 chain_id = "noble-1"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/noble/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/noble/lcd"
+]
 home_chain = false
 whitelist_clients = []
 blacklist_clients = []
@@ -58,8 +66,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "cosmoshub"
 chain_id = "cosmoshub-4"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/cosmoshub/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/cosmoshub/lcd"
+]
 home_chain = false
 whitelist_clients = []
 blacklist_clients = []
@@ -73,8 +85,12 @@ state_scan_timeout = 600
 [[chains]]
 name = "axelar"
 chain_id = "axelar-dojo-1"
-rpcs = [""]
-rests = [""]
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/axelar/rpc"
+]
+rests = [
+    "https://s1.solva.solutions/axelar/lcd"
+]
 home_chain = false
 whitelist_clients = []
 blacklist_clients = []

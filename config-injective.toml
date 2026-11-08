@@ -100,7 +100,7 @@ state_refresh_interval = 1200
 state_scan_timeout = 600
 
 [chains.excluded_sequences]
-channel-122 = ["690940-757191", "760058", "762421", "769208", "789558"]
+channel-122 = ["690940-757191", "760058", "762421", "769208", "789558", "792985", "793037"]  # 792985, 793037: PFM to dungeon-1 channel-5320 via injective channel-490; we don't relay dungeon
 channel-77133 = ["18"]  # stuck acks from injective channel-301
 
 [[chains]]
@@ -193,6 +193,9 @@ whitelist_channels = []
 blacklist_channels = []
 state_refresh_interval = 1200
 state_scan_timeout = 600
+
+[chains.excluded_sequences]
+channel-255 = ["18677"]  # PFM to dungeon-1 channel-5320 seq 193; timeout expired, we don't relay dungeon
 
 [[chains]]
 name = "secretnetwork"
